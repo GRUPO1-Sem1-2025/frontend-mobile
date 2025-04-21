@@ -1,11 +1,28 @@
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from '../screens/HomeScreen/HomeScreen';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import HomeScreen      from '../screens/HomeScreen/HomeScreen';
+import TravelsScreens  from '../screens/TravelsScreen/TravelsScreen';
 
-const Stack = createNativeStackNavigator();
-export default () => (
-  <Stack.Navigator>
-    <Stack.Screen name="Home" component={HomeScreen} />
-    {/* otras pantallas */}
-  </Stack.Navigator>
-);
+const Drawer = createDrawerNavigator();
+
+export default function AppStack() {
+  return (
+    <Drawer.Navigator
+      initialRouteName="Home"
+      screenOptions={{ headerTitleAlign: 'center' }}
+    >
+      {/* Opción de Home */}
+      <Drawer.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: 'Inicio' }}
+      />
+      {/* Tu nueva opción de Travels */}
+      <Drawer.Screen
+        name="Travels"
+        component={TravelsScreens}
+        options={{ title: 'Mis Viajes' }}
+      />
+    </Drawer.Navigator>
+  );
+}
