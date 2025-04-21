@@ -1,55 +1,57 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { Alert, AppState, AppStateStatus } from 'react-native';
+import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Uso de require para obtener la función correctamente sin esModuleInterop
 const jwtDecode: (token: string) => { exp: number } = require('jwt-decode');
 
-// --- Tipos del contexto de autenticación
+import Constants from 'expo-constants';
+
+const config = Constants.expoConfig ?? Constants.manifest;
+const { API_URL, LAN_IP } = config.extra as {
+  API_URL: string;
+  LAN_IP:  string;
+};
+
+function resolveBaseUrl() {
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return API_URL.replace('localhost', '10.0.2.2');
+    }
+    if (Platform.OS === 'ios' && Constants.isDevice) {
+      return API_URL.replace('localhost', LAN_IP);
+    }
+    return API_URL;
+  }
+  return API_URL;
+}
+
+export const BASE_URL = resolveBaseUrl();
+console.log('[AuthContext] BASE_URL =', BASE_URL);
 export type AuthContextType = {
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  register: (
+    nombre: string,
+    apellido: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
+  requestCode: (email: string, password: string) => Promise<void>;
+  verifyCode: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
-// Contexto con valores iniciales vacíos
 export const AuthContext = createContext<AuthContextType>({
   token: null,
-  login: async () => {},
+  register: async () => {},
+  requestCode: async () => {},
+  verifyCode: async () => {},
   logout: async () => {},
 });
 
-// Props del AuthProvider: children es obligatorio
-interface AuthProviderProps {
-  children: ReactNode;
-}
+interface AuthProviderProps { children: ReactNode; }
 
-// --- Componente proveedor de autenticación
 export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
 
-  // Función para iniciar sesión y almacenar el JWT
-  const login = async (username: string, password: string) => {
-    const response = await fetch('https://api.tuempresa.com/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    if (!response.ok) {
-      throw new Error('Credenciales inválidas');
-    }
-    const { token: jwt } = await response.json();
-    await AsyncStorage.setItem('userToken', jwt);
-    setToken(jwt);
-  };
-
-  // Función para cerrar sesión
-  const logout = async () => {
-    await AsyncStorage.removeItem('userToken');
-    setToken(null);
-  };
-
-  // Verifica si el token está expirado
   const isTokenExpired = (jwt: string): boolean => {
     try {
       const { exp } = jwtDecode(jwt);
@@ -59,7 +61,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Valida y restaura el token desde AsyncStorage
+  const logout = async () => {
+    await AsyncStorage.removeItem('userToken');
+    setToken(null);
+  };
+
   const validateToken = async () => {
     const stored = await AsyncStorage.getItem('userToken');
     if (stored) {
@@ -72,22 +78,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  useEffect(() => {
-    // Al montar, validamos el token
-    validateToken();
-
-    // Revalidar cuando la app vuelve al foreground
-    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') {
-        validateToken();
-      }
+  const register = async (
+    nombre: string,
+    apellido: string,
+    email: string,
+    password: string
+  ) => {
+    const resp = await fetch(`${BASE_URL}/usuarios/registrarse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, apellido, email, password }),
     });
+    if (!resp.ok) {
+      throw new Error('No se pudo registrar. Verifica tus datos.');
+    }
+    // backend envía código por mail
+  };
 
+  const requestCode = async (email: string, password: string) => {
+    const resp = await fetch(`${BASE_URL}/usuarios/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!resp.ok) {
+      throw new Error('E‑mail o contraseña inválidos');
+    }
+    // backend envía código por mail
+  };
+
+  const verifyCode = async (email: string, code: string) => {
+    const resp = await fetch(`${BASE_URL}/usuarios/verificarCodigo?email=${email}&codigo=${code}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!resp.ok) {
+      throw new Error('Código inválido');
+    }
+    const { token: jwt } = await resp.json();
+    await AsyncStorage.setItem('userToken', jwt);
+    setToken(jwt);
+  };
+
+  useEffect(() => {
+    validateToken();
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') validateToken();
+    });
     return () => sub.remove();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, login, logout }}>
+    <AuthContext.Provider
+      value={{ token, register, requestCode, verifyCode, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

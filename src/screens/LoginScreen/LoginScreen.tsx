@@ -1,21 +1,27 @@
 import React, { useState, useContext } from 'react';
-import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import {
+  View, TextInput, Button,
+  StyleSheet, ActivityIndicator, Text
+} from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function LoginScreen() {
-  const { login } = useContext(AuthContext);
-  const [username, setUsername] = useState('');
+  const { requestCode } = useContext(AuthContext);
+  const navigation = useNavigation<any>();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async () => {
+  const handleNext = async () => {
     setLoading(true);
     setError(null);
     try {
-      await login(username, password);
+      await requestCode(email, password);
+      navigation.navigate('VerifyCode', { email });
     } catch (e) {
-      setError('Usuario o contraseña inválidos');
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -23,34 +29,45 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Iniciar Sesión</Text>
+      <Text style={styles.title}>Paso 1: Iniciar Sesión</Text>
       <TextInput
-        placeholder="Usuario"
+        placeholder="Correo electrónico"
         style={styles.input}
-        value={username}
-        onChangeText={setUsername}
+        value={email}
+        onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
       <TextInput
         placeholder="Contraseña"
         style={styles.input}
+        secureTextEntry
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
       />
       {error && <Text style={styles.error}>{error}</Text>}
-      {loading ? (
-        <ActivityIndicator />
-      ) : (
-        <Button title="Entrar" onPress={handleLogin} />
-      )}
+      {loading
+        ? <ActivityIndicator />
+        : (
+          <>
+            <Button title="Enviar código" onPress={handleNext} />
+            <View style={styles.register}>
+              <Button
+                title="Registrarse"
+                onPress={() => navigation.navigate('Register')}
+              />
+            </View>
+          </>
+        )
+      }
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 16 },
-  title: { fontSize: 24, marginBottom: 16, textAlign: 'center' },
-  input: { borderWidth: 1, borderRadius: 4, marginBottom: 12, padding: 8 },
-  error: { color: 'red', marginBottom: 12, textAlign: 'center' },
+  container: { flex:1, justifyContent:'center', padding:16 },
+  title: { fontSize:24, marginBottom:16, textAlign:'center' },
+  input: { borderWidth:1, borderRadius:4, marginBottom:12, padding:8 },
+  error: { color:'red', marginBottom:12, textAlign:'center' },
+  register: { marginTop: 8 }
 });

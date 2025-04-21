@@ -1,6 +1,6 @@
-import 'react-native-gesture-handler';
+// index.js  ← debe estar en la raíz del proyecto
+import 'react-native-gesture-handler';      // si usas react-navigation
 import { registerRootComponent } from 'expo';
-import App from './src/App';
+import App from './src/App'; 
 
-// Expo se encarga de todo el ciclo de vida
 registerRootComponent(App);
