@@ -1,7 +1,15 @@
+// src/screens/LoginScreen.tsx
 import React, { useState, useContext } from 'react';
 import {
-  View, TextInput, Button,
-  StyleSheet, ActivityIndicator, Text
+  View,
+  TextInput,
+  Button,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -28,27 +36,35 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Paso 1: Iniciar Sesión</Text>
-      <TextInput
-        placeholder="Correo electrónico"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        placeholder="Contraseña"
-        style={styles.input}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-      {loading
-        ? <ActivityIndicator />
-        : (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Paso 1: Iniciar Sesión</Text>
+        <TextInput
+          placeholder="Correo electrónico"
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <TextInput
+          placeholder="Contraseña"
+          style={styles.input}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        {error && <Text style={styles.error}>{error}</Text>}
+        {loading ? (
+          <ActivityIndicator />
+        ) : (
           <>
             <Button title="Enviar código" onPress={handleNext} />
             <View style={styles.register}>
@@ -58,16 +74,27 @@ export default function LoginScreen() {
               />
             </View>
           </>
-        )
-      }
-    </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex:1, justifyContent:'center', padding:16 },
-  title: { fontSize:24, marginBottom:16, textAlign:'center' },
-  input: { borderWidth:1, borderRadius:4, marginBottom:12, padding:8 },
-  error: { color:'red', marginBottom:12, textAlign:'center' },
-  register: { marginTop: 8 }
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  title: { fontSize: 24, marginBottom: 16, textAlign: 'center' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 4,
+    marginBottom: 12,
+    padding: 8,
+    backgroundColor: '#fafafa',
+  },
+  error: { color: 'red', marginBottom: 12, textAlign: 'center' },
+  register: { marginTop: 8 },
 });

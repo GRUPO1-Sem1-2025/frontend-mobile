@@ -1,11 +1,11 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 const jwtDecode: (token: string) => { exp: number } = require('jwt-decode');
 
-import Constants from 'expo-constants';
-
-const config = Constants.expoConfig ?? Constants.manifest;
+// Leer API_URL y LAN_IP de app.json (expo.extra)
+const config = Constants.expoConfig ?? Constants.manifest!;
 const { API_URL, LAN_IP } = config.extra as {
   API_URL: string;
   LAN_IP:  string;
@@ -25,14 +25,16 @@ function resolveBaseUrl() {
 }
 
 export const BASE_URL = resolveBaseUrl();
-console.log('[AuthContext] BASE_URL =', BASE_URL);
+
 export type AuthContextType = {
   token: string | null;
   register: (
     nombre: string,
     apellido: string,
     email: string,
-    password: string
+    password: string,
+    ci: string,
+    fecNac: string
   ) => Promise<void>;
   requestCode: (email: string, password: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
@@ -52,6 +54,7 @@ interface AuthProviderProps { children: ReactNode; }
 export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
 
+  // Comprueba si el JWT expiró
   const isTokenExpired = (jwt: string): boolean => {
     try {
       const { exp } = jwtDecode(jwt);
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setToken(null);
   };
 
+  // Valida token al iniciar la app
   const validateToken = async () => {
     const stored = await AsyncStorage.getItem('userToken');
     if (stored) {
@@ -78,11 +82,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Registro: devuelve { token } directamente
   const register = async (
     nombre: string,
     apellido: string,
     email: string,
-    password: string
+    password: string,
+    ci : string
   ) => {
     const resp = await fetch(`${BASE_URL}/usuarios/registrarse`, {
       method: 'POST',
@@ -92,9 +98,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!resp.ok) {
       throw new Error('No se pudo registrar. Verifica tus datos.');
     }
-    // backend envía código por mail
+    const { token: jwt } = await resp.json();
+    await AsyncStorage.setItem('userToken', jwt);
+    setToken(jwt);
   };
 
+  // Paso 1: login envía código
   const requestCode = async (email: string, password: string) => {
     const resp = await fetch(`${BASE_URL}/usuarios/login`, {
       method: 'POST',
@@ -102,30 +111,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       body: JSON.stringify({ email, password }),
     });
     if (!resp.ok) {
-      throw new Error('E‑mail o contraseña inválidos');
+      throw new Error('E-mail o contraseña inválidos');
     }
     // backend envía código por mail
   };
 
+  // Paso 2: verifica código y guarda token
   const verifyCode = async (email: string, code: string) => {
-    const resp = await fetch(`${BASE_URL}/usuarios/verificarCodigo?email=${email}&codigo=${code}`, {
+    const resp = await fetch(`${BASE_URL}/usuarios/verificarCodigo`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, codigo: code }),
     });
-    if (!resp.ok) {
-      throw new Error('Código inválido');
+    let data: any;
+    try {
+      data = await resp.json();
+    } catch {
+      throw new Error('Respuesta inesperada del servidor');
     }
-    const { token: jwt } = await resp.json();
-    await AsyncStorage.setItem('userToken', jwt);
-    setToken(jwt);
+    if (!resp.ok || !data.token) {
+      throw new Error(data.error || 'Código inválido');
+    }
+    await AsyncStorage.setItem('userToken', data.token);
+    setToken(data.token);
   };
 
   useEffect(() => {
     validateToken();
-    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') validateToken();
-    });
-    return () => sub.remove();
   }, []);
 
   return (
