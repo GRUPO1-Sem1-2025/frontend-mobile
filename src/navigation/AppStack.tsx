@@ -1,34 +1,48 @@
 import React from 'react';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import HomeScreen      from '../screens/HomeScreen/HomeScreen';
-import TravelsScreens  from '../screens/TravelsScreen/TravelsScreen';
-import ProfileScreen   from  '../screens/Profiles/ProfileScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AppDrawer from './AppDrawer';
+import AvailableTripsScreen from '../screens/AvailableTripScreen/AvailableTripScreen';
+import BusSelectionScreen   from '../screens/BusSelectionScreen/BusSelectionScreen';
 
-const Drawer = createDrawerNavigator();
+export type AppStackParamList = {
+  AppDrawer: undefined;
+  AvailableTrips: {
+    origin: number;
+    destination: number;
+    tripType: 'oneway' | 'roundtrip';
+    departDate: Date;
+    returnDate?: Date;
+  };
+  BusSelection: {
+    busId: number;
+  };
+};
+
+const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export default function AppStack() {
   return (
-    <Drawer.Navigator
-      initialRouteName="Home"
-      screenOptions={{ headerTitleAlign: 'center' }}
-    >
-      {/* Opción de Home */}
-      <Drawer.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: 'Inicio' }}
+    <Stack.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
+      {/* Aquí va tu Drawer como pantalla inicial */}
+      <Stack.Screen
+        name="AppDrawer"
+        component={AppDrawer}
+        options={{ headerShown: false }}
       />
-      {/* Tu nueva opción de Travels */}
-      <Drawer.Screen
-        name="Travels"
-        component={TravelsScreens}
-        options={{ title: 'Mis Viajes' }}
+
+      {/* Pantalla de listado de viajes tras pulsar “Buscar” */}
+      <Stack.Screen
+        name="AvailableTrips"
+        component={AvailableTripsScreen}
+        options={{ title: 'Viajes Disponibles' }}
       />
-            <Drawer.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Mi Perfil' }}
+
+      {/* Pantalla de selección de bus */}
+      <Stack.Screen
+        name="BusSelection"
+        component={BusSelectionScreen}
+        options={{ title: 'Seleccionar Bus' }}
       />
-    </Drawer.Navigator>
+    </Stack.Navigator>
   );
 }

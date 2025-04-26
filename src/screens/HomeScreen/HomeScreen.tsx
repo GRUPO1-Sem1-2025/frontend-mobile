@@ -16,12 +16,13 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-
+import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import { getLocalities } from '../../services/locality';
 import { Locality } from '../../types/locality';
 
 export default function HomeScreen() {
+  const navigation = useNavigation<any>();
   const { logout, token } = useContext(AuthContext);
 
   // — Localidades —
@@ -78,7 +79,13 @@ export default function HomeScreen() {
       Alert.alert('Error', 'La fecha de regreso no puede ser menor a la de salida.');
       return;
     }
-    console.log({ origin, destination, tripType, departDate, returnDate });
+    navigation.navigate('AvailableTrips', {
+      origin,
+      destination,
+      tripType,
+      departDate,
+      returnDate: tripType === 'roundtrip' ? returnDate : undefined
+    });
     // navegar o llamar API de búsqueda
   };
 
