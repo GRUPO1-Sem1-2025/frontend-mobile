@@ -52,6 +52,7 @@ export default function AvailableTripsScreen() {
           <Text>Llegada: {item.horaFin}</Text>
           <Text>Asientos Disponibles: {item.cantAsientosDisponibles}</Text>
           <Text>Precio: ${item.precioPasaje}</Text>
+          <Text>Numero de Omnibus: {item.busId}</Text>
           <Button
             title="Seleccionar"
             onPress={() =>
