@@ -1,7 +1,7 @@
 {
-  "name": "poc-frontend-mobile-v1",
+  "name": "my-new-app",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -9,26 +9,26 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-async-storage/async-storage": "~1.22.0",
+    "@react-native-community/datetimepicker": "7.0.0",
     "@react-native-masked-view/masked-view": "0.3.2",
-    "@react-navigation/drawer": "^7.3.9",
-    "@react-navigation/native": "^7.1.6",
-    "@react-navigation/native-stack": "^7.3.10",
-    "expo": "~52.0.46",
-    "expo-status-bar": "~2.0.1",
+    "@react-native-picker/picker": "2.11.0",
+    "@react-navigation/drawer": "7.3.10",
+    "@react-navigation/native": "^7.1.7",
+    "@react-navigation/native-stack": "7.3.10",
+    "expo": "~53.0.5",
+    "expo-status-bar": "~2.2.3",
     "jwt-decode": "^4.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.9",
-    "react-native-gesture-handler": "~2.20.2",
-    "react-native-reanimated": "~3.16.1",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "~4.4.0",
-    "@react-native-community/datetimepicker": "8.2.0",
-    "@react-native-picker/picker": "2.9.0"
+    "react": "19.0.0",
+    "react-native": "0.79.2",
+    "react-native-gesture-handler": "~2.25.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.10.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@types/react": "^18.3.20",
+    "@types/react": "^19.0.0",
     "@types/react-native": "^0.72.8",
     "dotenv": "^16.5.0",
     "typescript": "^5.8.3"

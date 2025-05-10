@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "poc-frontend-mobile-v1",
-    "slug": "poc-frontend-mobile-v1",
+    "name": "poc-frontend-mobile",
+    "slug": "poc-frontend-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,8 +25,8 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "API_URL": "http://192.168.1.12:8080",
-      "LAN_IP": "192.168.1.20"
+      "API_URL": "http://192.168.1.44:8080",
+      "LAN_IP": "192.168.1.44"
     }
   }
 }
