@@ -2,7 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppDrawer from './AppDrawer';
 import AvailableTripsScreen from '../screens/AvailableTripScreen/AvailableTripScreen';
-import BusSelectionScreen   from '../screens/BusSelectionScreen/BusSelectionScreen';
+import BusSelectionScreen from '../screens/BusSelectionScreen/BusSelectionScreen';
 
 export type AppStackParamList = {
   AppDrawer: undefined;
@@ -22,7 +22,12 @@ const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export default function AppStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerTitleAlign: 'center',
+        headerBackTitle: 'Volver',
+      }}
+    >
       {/* Aquí va tu Drawer como pantalla inicial */}
       <Stack.Screen
         name="AppDrawer"
