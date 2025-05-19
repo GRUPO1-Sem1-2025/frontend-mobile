@@ -35,22 +35,7 @@ type Navigation = {
 };
 
 export default function BusSelectionScreen() {
-  // Extraemos tripType
-  const params = useRoute().params as Partial<RouteParams> | undefined;
-  const tripType = params?.tripType;
-
-  // Si no se recibe tripType, mostramos error y retornamos UI de error
-  if (tripType !== 'oneway' && tripType !== 'roundtrip') {
-    console.error('Error: tripType no definido en params:', params);
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>
-          Error interno: parámetro de tipo de viaje no especificado.
-        </Text>
-      </View>
-    );
-  }
-
+  const { tripType } = useRoute().params as RouteParams;
   const navigation = useNavigation<Navigation>();
 
   // Hardcoded por ahora
@@ -71,18 +56,13 @@ export default function BusSelectionScreen() {
     let active = true;
     async function load() {
       try {
-        console.log('--- Inicio de load() ---');
-        console.log('TripType:', tripType);
-
         setLoading(true);
         const buses = await getActiveBuses();
-        console.log('Buses obtenidos:', buses);
 
         // Ida
         const foundOut = buses.find(
           b => b.marca.toLowerCase() === outboundBrand.toLowerCase()
         );
-        console.log(`Bus de ida buscado (${outboundBrand}):`, foundOut);
         if (!foundOut) throw new Error(`Bus de ida '${outboundBrand}' no encontrado`);
         if (!active) return;
         setBusOut(foundOut);
@@ -90,10 +70,8 @@ export default function BusSelectionScreen() {
         const respOut = await fetch(
           `${BASE_URL}/viajes/obtenerAsientosDisponibles?idViaje=${outboundTripId}`
         );
-        console.log('Fetch asientos ida status:', respOut.status);
         if (!respOut.ok) throw new Error('Error al obtener asientos de ida');
         const outData: number[] = await respOut.json();
-        console.log('Asientos ida recibidos:', outData);
         if (active) setOutSeats(outData);
 
         // Vuelta
@@ -101,7 +79,6 @@ export default function BusSelectionScreen() {
           const foundRet = buses.find(
             b => b.marca.toLowerCase() === returnBrand.toLowerCase()
           );
-          console.log(`Bus de vuelta buscado (${returnBrand}):`, foundRet);
           if (!foundRet) throw new Error(`Bus de vuelta '${returnBrand}' no encontrado`);
           if (!active) return;
           setBusRet(foundRet);
@@ -109,15 +86,11 @@ export default function BusSelectionScreen() {
           const respRet = await fetch(
             `${BASE_URL}/viajes/obtenerAsientosDisponibles?idViaje=${returnTripId}`
           );
-          console.log('Fetch asientos vuelta status:', respRet.status);
           if (!respRet.ok) throw new Error('Error al obtener asientos de vuelta');
           const retData: number[] = await respRet.json();
-          console.log('Asientos vuelta recibidos:', retData);
           if (active) setRetSeats(retData);
         }
-        console.log('--- Fin de load() ---');
       } catch (e) {
-        console.error('Error en load():', e);
         Alert.alert('Error', (e as Error).message);
       } finally {
         if (active) setLoading(false);
@@ -135,7 +108,6 @@ export default function BusSelectionScreen() {
     );
   }
 
-  // Construye matriz de asientos
   const buildMatrix = (
     bus: Bus,
     seats: number[]
@@ -161,23 +133,16 @@ export default function BusSelectionScreen() {
 
   const toggleSeat = (num: number, outbound: boolean) => {
     if (outbound) {
-      setSelOut(prev =>
-        prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]
-      );
+      setSelOut(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
     } else {
-      setSelRet(prev =>
-        prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]
-      );
+      setSelRet(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
     }
   };
 
   const matrixOut = busOut ? buildMatrix(busOut, outSeats) : [];
-  console.log('Matriz ida:', matrixOut);
-  const matrixRet =
-    tripType === 'roundtrip' && busRet
-      ? buildMatrix(busRet, retSeats)
-      : [];
-  console.log('Matriz vuelta:', matrixRet);
+  const matrixRet = tripType === 'roundtrip' && busRet
+    ? buildMatrix(busRet, retSeats)
+    : [];
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -186,33 +151,26 @@ export default function BusSelectionScreen() {
       {/* Ida */}
       {busOut && (
         <>
-          <Text style={styles.sectionTitle}>
-            Asientos Ida ({outboundBrand})
-          </Text>
+          <Text style={styles.sectionTitle}>Asientos Ida</Text>
           {matrixOut.map((row, ri) => (
             <View key={`out-row-${ri}`} style={styles.row}>
-              {row.map((seat, ci) =>
-                seat ? (
-                  <TouchableOpacity
-                    key={`out-${seat.number}`}
-                    style={[
-                      styles.seat,
-                      !seat.available && styles.seatUnavailable,
-                      selOut.includes(seat.number) && styles.seatSelected,
-                      ci === 1 && styles.aisle,
-                    ]}
-                    disabled={!seat.available}
-                    onPress={() => toggleSeat(seat.number, true)}
-                  >
-                    <Text style={styles.seatText}>{seat.number}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    key={`out-empty-${ri}-${ci}`}
-                    style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]}
-                  />
-                )
-              )}
+              {row.map((seat, ci) => seat ? (
+                <TouchableOpacity
+                  key={`out-${seat.number}`}
+                  style={[
+                    styles.seat,
+                    !seat.available && styles.seatUnavailable,
+                    selOut.includes(seat.number) && styles.seatSelected,
+                    ci === 1 && styles.aisle,
+                  ]}
+                  disabled={!seat.available}
+                  onPress={() => toggleSeat(seat.number, true)}
+                >
+                  <Text style={styles.seatText}>{seat.number}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View key={`out-empty-${ri}-${ci}`} style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]} />
+              ))}
             </View>
           ))}
         </>
@@ -221,33 +179,26 @@ export default function BusSelectionScreen() {
       {/* Vuelta */}
       {tripType === 'roundtrip' && busRet && (
         <>
-          <Text style={styles.sectionTitle}>
-            Asientos Vuelta ({returnBrand})
-          </Text>
+          <Text style={styles.sectionTitle}>Asientos Vuelta</Text>
           {matrixRet.map((row, ri) => (
             <View key={`ret-row-${ri}`} style={styles.row}>
-              {row.map((seat, ci) =>
-                seat ? (
-                  <TouchableOpacity
-                    key={`ret-${seat.number}`}
-                    style={[
-                      styles.seat,
-                      !seat.available && styles.seatUnavailable,
-                      selRet.includes(seat.number) && styles.seatSelected,
-                      ci === 1 && styles.aisle,
-                    ]}
-                    disabled={!seat.available}
-                    onPress={() => toggleSeat(seat.number, false)}
-                  >
-                    <Text style={styles.seatText}>{seat.number}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    key={`ret-empty-${ri}-${ci}`}
-                    style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]}
-                  />
-                )
-              )}
+              {row.map((seat, ci) => seat ? (
+                <TouchableOpacity
+                  key={`ret-${seat.number}`}
+                  style={[
+                    styles.seat,
+                    !seat.available && styles.seatUnavailable,
+                    selRet.includes(seat.number) && styles.seatSelected,
+                    ci === 1 && styles.aisle,
+                  ]}
+                  disabled={!seat.available}
+                  onPress={() => toggleSeat(seat.number, false)}
+                >
+                  <Text style={styles.seatText}>{seat.number}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View key={`ret-empty-${ri}-${ci}`} style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]} />
+              ))}
             </View>
           ))}
         </>
@@ -256,12 +207,12 @@ export default function BusSelectionScreen() {
       <Button
         title="Ir a pagar"
         color={colors.solarYellow}
-        disabled={
-          selOut.length === 0 ||
-          (tripType === 'roundtrip' && selRet.length === 0)
-        }
+        disabled={selOut.length === 0 || (tripType === 'roundtrip' && selRet.length === 0)}
         onPress={() =>
           navigation.navigate('Payment', {
+            tripType,
+            outboundTrip: busOut,
+            returnTrip: busRet,
             outboundSeats: selOut,
             returnSeats: selRet,
           })
@@ -272,65 +223,15 @@ export default function BusSelectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.skyBlue,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-  },
-  container: {
-    padding: 16,
-    alignItems: 'center',
-    backgroundColor: colors.skyBlue,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: colors.darkBlue,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
-    color: colors.darkBlue,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    justifyContent: 'center',
-  },
-  seat: {
-    width: 40,
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.midBlue,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.busWhite,
-    marginHorizontal: 4,
-  },
-  seatUnavailable: {
-    backgroundColor: '#ccc',
-  },
-  seatSelected: {
-    backgroundColor: colors.lightBlue,
-    borderColor: colors.darkBlue,
-  },
-  seatEmpty: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  seatText: {
-    color: colors.darkBlue,
-  },
-  aisle: {
-    marginHorizontal: 12,
-  },
+  container: { padding: 16, backgroundColor: colors.skyBlue, alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.skyBlue },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: colors.darkBlue },
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8, color: colors.darkBlue },
+  row: { flexDirection: 'row', marginBottom: 8, justifyContent: 'center' },
+  seat: { width: 40, height: 40, borderWidth: 1, borderColor: colors.midBlue, borderRadius: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.busWhite, marginHorizontal: 4 },
+  seatUnavailable: { backgroundColor: '#ccc' },
+  seatSelected: { backgroundColor: colors.lightBlue, borderColor: colors.darkBlue },
+  seatEmpty: { backgroundColor: 'transparent', borderWidth: 0 },
+  seatText: { color: colors.darkBlue },
+  aisle: { marginHorizontal: 12 },
 });

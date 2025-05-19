@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppDrawer from './AppDrawer';
 import AvailableTripsScreen from '../screens/AvailableTripScreen/AvailableTripScreen';
 import BusSelectionScreen from '../screens/BusSelectionScreen/BusSelectionScreen';
+import PaymentScreen from '../screens/PaymentScreen/PaymentScreen';
+import { Trip } from '../types/trips';
 
 export type AppStackParamList = {
   AppDrawer: undefined;
@@ -12,6 +14,17 @@ export type AppStackParamList = {
     tripType: 'oneway' | 'roundtrip';
     departDate: Date;
     returnDate?: Date;
+  };
+  Payment: {
+    origin: number;
+    destination: number;
+    tripType: 'oneway' | 'roundtrip';
+    departDate: string; // ISO string
+    returnDate?: string; // ISO string opcional
+    outboundTrip: Trip;
+    returnTrip?: Trip;
+    outboundSeats: number[];
+    returnSeats?: number[];
   };
   BusSelection: {
     busId: number;
@@ -48,6 +61,12 @@ export default function AppStack() {
         component={BusSelectionScreen}
         options={{ title: 'Seleccionar Bus' }}
       />
+
+      <Stack.Screen
+      name="Payment"
+      component={PaymentScreen}
+      options={{ title: 'Pago' }}
+/>
     </Stack.Navigator>
   );
 }
