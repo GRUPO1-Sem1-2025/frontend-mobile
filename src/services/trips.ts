@@ -1,6 +1,10 @@
 import { BASE_URL } from '../context/AuthContext';
 import { Trip } from '../types/trips';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * Devuelve una fecha formateada como YYYY-MM-DD
+ */
 function formatDateLocal(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -8,6 +12,9 @@ function formatDateLocal(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Consulta viajes disponibles según los parámetros.
+ */
 export async function getAvailableTrips(
   origin: number,
   destination: number,
@@ -30,17 +37,22 @@ export async function getAvailableTrips(
 
   const url = `${BASE_URL}/viajes/obtenerViajesPorFechaYDestino?${params.toString()}`;
 
+  const userToken = await AsyncStorage.getItem('userToken');
+  if (!userToken) {
+    throw new Error('Token de usuario no disponible');
+  }
 
   const resp = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${userToken}`,
+    },
   });
-
 
   if (!resp.ok) {
     throw new Error(`Error al buscar viajes: código ${resp.status}`);
   }
 
-  const data: Trip[] = await resp.json();
-  return data;
+  return await resp.json();
 }

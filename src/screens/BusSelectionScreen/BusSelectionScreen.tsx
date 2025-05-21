@@ -1,5 +1,3 @@
-// src/screens/BusSelectionScreen.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,10 +11,10 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getActiveBuses } from '../../services/buses';
+import { getAvailableSeats } from '../../services/seats';
 import { Bus } from '../../types/bus';
-import { BASE_URL } from '../../context/AuthContext';
+import { Trip } from '../../types/trips';
 
-// Colores
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
@@ -28,21 +26,34 @@ const colors = {
 
 type RouteParams = {
   tripType: 'oneway' | 'roundtrip';
-};
-
-type Navigation = {
-  navigate: (screen: string, params?: any) => void;
+  viajeId: number;
+  returnViajeId?: number | null;
+  busId: number;
+  returnBusId?: number | null;
+  outboundTrip: Trip;
+  returnTrip?: Trip;
+  origin: number;
+  destination: number;
+  departDate: string;
+  returnDate?: string;
 };
 
 export default function BusSelectionScreen() {
-  const { tripType } = useRoute().params as RouteParams;
-  const navigation = useNavigation<Navigation>();
+  const {
+    tripType,
+    viajeId,
+    returnViajeId,
+    busId,
+    returnBusId,
+    outboundTrip,
+    returnTrip,
+    origin,
+    destination,
+    departDate,
+    returnDate,
+  } = useRoute().params as RouteParams;
 
-  // Hardcoded por ahora
-  const outboundBrand = 'Chevrolet';
-  const returnBrand = 'Jetour';
-  const outboundTripId = 5;
-  const returnTripId = 7;
+  const navigation = useNavigation<any>();
 
   const [busOut, setBusOut] = useState<Bus | null>(null);
   const [busRet, setBusRet] = useState<Bus | null>(null);
@@ -54,40 +65,27 @@ export default function BusSelectionScreen() {
 
   useEffect(() => {
     let active = true;
+
     async function load() {
       try {
         setLoading(true);
         const buses = await getActiveBuses();
 
-        // Ida
-        const foundOut = buses.find(
-          b => b.marca.toLowerCase() === outboundBrand.toLowerCase()
-        );
-        if (!foundOut) throw new Error(`Bus de ida '${outboundBrand}' no encontrado`);
+        const foundOut = buses.find(b => b.id === busId);
+        if (!foundOut) throw new Error(`Bus de ida ID '${busId}' no encontrado`);
         if (!active) return;
         setBusOut(foundOut);
 
-        const respOut = await fetch(
-          `${BASE_URL}/viajes/obtenerAsientosDisponibles?idViaje=${outboundTripId}`
-        );
-        if (!respOut.ok) throw new Error('Error al obtener asientos de ida');
-        const outData: number[] = await respOut.json();
+        const outData = await getAvailableSeats(viajeId);
         if (active) setOutSeats(outData);
 
-        // Vuelta
-        if (tripType === 'roundtrip') {
-          const foundRet = buses.find(
-            b => b.marca.toLowerCase() === returnBrand.toLowerCase()
-          );
-          if (!foundRet) throw new Error(`Bus de vuelta '${returnBrand}' no encontrado`);
+        if (tripType === 'roundtrip' && returnViajeId && returnBusId) {
+          const foundRet = buses.find(b => b.id === returnBusId);
+          if (!foundRet) throw new Error(`Bus de vuelta ID '${returnBusId}' no encontrado`);
           if (!active) return;
           setBusRet(foundRet);
 
-          const respRet = await fetch(
-            `${BASE_URL}/viajes/obtenerAsientosDisponibles?idViaje=${returnTripId}`
-          );
-          if (!respRet.ok) throw new Error('Error al obtener asientos de vuelta');
-          const retData: number[] = await respRet.json();
+          const retData = await getAvailableSeats(returnViajeId);
           if (active) setRetSeats(retData);
         }
       } catch (e) {
@@ -96,9 +94,10 @@ export default function BusSelectionScreen() {
         if (active) setLoading(false);
       }
     }
+
     load();
     return () => { active = false; };
-  }, [tripType]);
+  }, [tripType, viajeId, returnViajeId, busId, returnBusId]);
 
   if (loading) {
     return (
@@ -116,6 +115,7 @@ export default function BusSelectionScreen() {
     const cols = 4;
     const rows = Math.ceil(total / cols);
     const matrix: ({ number: number; available: boolean } | null)[][] = [];
+
     for (let r = 0; r < rows; r++) {
       const row: ({ number: number; available: boolean } | null)[] = [];
       for (let c = 0; c < cols; c++) {
@@ -128,6 +128,7 @@ export default function BusSelectionScreen() {
       }
       matrix.push(row);
     }
+
     return matrix;
   };
 
@@ -140,7 +141,7 @@ export default function BusSelectionScreen() {
   };
 
   const matrixOut = busOut ? buildMatrix(busOut, outSeats) : [];
-  const matrixRet = tripType === 'roundtrip' && busRet
+  const matrixRet = tripType === 'roundtrip' && busRet && retSeats.length > 0
     ? buildMatrix(busRet, retSeats)
     : [];
 
@@ -148,7 +149,6 @@ export default function BusSelectionScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Seleccioná tu asiento</Text>
 
-      {/* Ida */}
       {busOut && (
         <>
           <Text style={styles.sectionTitle}>Asientos Ida</Text>
@@ -176,8 +176,7 @@ export default function BusSelectionScreen() {
         </>
       )}
 
-      {/* Vuelta */}
-      {tripType === 'roundtrip' && busRet && (
+      {matrixRet.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Asientos Vuelta</Text>
           {matrixRet.map((row, ri) => (
@@ -211,10 +210,14 @@ export default function BusSelectionScreen() {
         onPress={() =>
           navigation.navigate('Payment', {
             tripType,
-            outboundTrip: busOut,
-            returnTrip: busRet,
+            outboundTrip,
+            returnTrip,
             outboundSeats: selOut,
             returnSeats: selRet,
+            departDate,
+            returnDate,
+            origin,
+            destination,
           })
         }
       />

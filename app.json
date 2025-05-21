@@ -25,8 +25,11 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "API_URL": "http://192.168.1.58:8080",
-      "LAN_IP": "192.168.1.58"
+      "API_URL": "http://192.168.1.65:8080",
+      "LAN_IP": "192.168.1.65",
+      "eas": {
+        "projectId": "54869248-e0e9-475d-afca-76f04ecb06de"
+      }
     }
   }
 }

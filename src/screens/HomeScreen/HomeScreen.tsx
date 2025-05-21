@@ -1,5 +1,4 @@
-// src/screens/HomeScreen.tsx
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +19,23 @@ import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import { getLocalities } from '../../services/locality';
 import { Locality } from '../../types/locality';
+
+/* --NOTIFICATIONES--
+
+import { registerForPushNotificationsAsync } from '../../notifications/registerPush';
+import * as Notifications from 'expo-notifications';
+
+🟨 Handler global para mostrar notificaciones en pantalla
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true, // ✅ nuevo campo requerido
+    shouldShowList: true    // ✅ nuevo campo requerido
+  }),
+}); 
+*/
 
 // Paleta de colores
 const colors = {
@@ -56,7 +72,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadLocalities();
-    }, [])
+    },[])
   );
 
   const onRefresh = async () => {
@@ -80,6 +96,7 @@ export default function HomeScreen() {
     setShowDepartPicker(false);
     date && setDepartDate(date);
   };
+
   const onReturnChange = (_: DateTimePickerEvent, date?: Date) => {
     setShowReturnPicker(false);
     date && setReturnDate(date);
@@ -208,6 +225,28 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>{token ? '¡Autenticado!' : 'No autenticado.'}</Text>
           <Button title="Cerrar sesión" onPress={logout} />
         </View>
+
+        {/* --NOTIFICACIONES--
+      
+        <View style={{ marginTop: 20 }}>
+          <Button
+            title="Simular notificación local"
+            onPress={async () => {
+              try {
+                const id = await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: 'Notificación local',
+                    body: 'Ejemplo de notificacion',
+                  },
+                  trigger: null,
+                });
+                console.log('✅ Notificación local agendada con ID:', id);
+              } catch (err) {
+                console.error('❌ Error al lanzar notificación local:', err);
+              }
+            }}
+          />
+        </View> */}
       </ScrollView>
     </KeyboardAvoidingView>
   );

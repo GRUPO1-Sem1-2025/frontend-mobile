@@ -1,5 +1,3 @@
-// src/screens/AvailableTripsScreen.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -40,8 +38,8 @@ export default function AvailableTripsScreen() {
   const [outboundTrips, setOutboundTrips] = useState<Trip[]>([]);
   const [returnTrips, setReturnTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedOutboundKey, setSelectedOutboundKey] = useState<string | null>(null);
-  const [selectedReturnKey, setSelectedReturnKey] = useState<string | null>(null);
+  const [selectedOutboundTrip, setSelectedOutboundTrip] = useState<Trip | null>(null);
+  const [selectedReturnTrip, setSelectedReturnTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -72,36 +70,27 @@ export default function AvailableTripsScreen() {
     })();
   }, [origin, destination, departDate, tripType, returnDate]);
 
-  if (loading) return <ActivityIndicator style={styles.loader} color={colors.darkBlue} size="large" />;
-
   const canContinue =
-    selectedOutboundKey !== null &&
-    (tripType === 'oneway' || selectedReturnKey !== null);
-
-  const makeKey = (trip: Trip, isReturn: boolean) =>
-    `${isReturn ? 'ret' : 'out'}-${trip.busId}-${trip.horaInicio}`;
+    selectedOutboundTrip !== null &&
+    (tripType === 'oneway' || selectedReturnTrip !== null);
 
   const renderTrip = (
     trip: Trip,
     index: number,
     isReturn = false
   ) => {
-    const key = makeKey(trip, isReturn);
     const isSelected = isReturn
-      ? key === selectedReturnKey
-      : key === selectedOutboundKey;
+      ? selectedReturnTrip?.viajeId === trip.viajeId
+      : selectedOutboundTrip?.viajeId === trip.viajeId;
 
     return (
       <TouchableOpacity
-        key={key}
-        style={[
-          styles.item,
-          isSelected && styles.selectedItem,
-        ]}
+        key={`${isReturn ? 'ret' : 'out'}-${trip.viajeId}`}
+        style={[styles.item, isSelected && styles.selectedItem]}
         onPress={() =>
           isReturn
-            ? setSelectedReturnKey(key)
-            : setSelectedOutboundKey(key)
+            ? setSelectedReturnTrip(trip)
+            : setSelectedOutboundTrip(trip)
         }
       >
         <Text style={styles.text}>Salida: {trip.horaInicio}</Text>
@@ -114,18 +103,14 @@ export default function AvailableTripsScreen() {
 
   const sections = [
     { title: 'Viaje de Ida', data: outboundTrips },
-    ...(tripType === 'roundtrip'
-      ? [{ title: 'Viaje de Vuelta', data: returnTrips }]
-      : []),
+    ...(tripType === 'roundtrip' ? [{ title: 'Viaje de Vuelta', data: returnTrips }] : []),
   ];
 
   return (
     <View style={styles.container}>
       <SectionList
         sections={sections}
-        keyExtractor={(item, index) =>
-          makeKey(item, sections.findIndex(s => s.data.includes(item)) === 1)
-        }
+        keyExtractor={(item) => `trip-${item.viajeId}`}
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionHeader}>{section.title}</Text>
         )}
@@ -139,8 +124,17 @@ export default function AvailableTripsScreen() {
             disabled={!canContinue}
             onPress={() =>
               navigation.navigate('BusSelection', {
-                tripType, // ahora enviamos el tipo de viaje
-                busId: Number(selectedOutboundKey?.split('-')[1]),
+                tripType,
+                viajeId: selectedOutboundTrip?.viajeId,
+                returnViajeId: selectedReturnTrip?.viajeId ?? null,
+                busId: selectedOutboundTrip?.busId,
+                returnBusId: selectedReturnTrip?.busId ?? null,
+                outboundTrip: selectedOutboundTrip, // ✅
+                returnTrip: selectedReturnTrip,     // ✅
+                origin,
+                destination,
+                departDate: departDate.toISOString(),
+                returnDate: returnDate?.toISOString() ?? null,
               })
             }
           />
@@ -152,17 +146,9 @@ export default function AvailableTripsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.skyBlue,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  listContainer: {
-    padding: 16,
-  },
+  container: { flex: 1, backgroundColor: colors.skyBlue },
+  loader: { flex: 1, justifyContent: 'center' },
+  listContainer: { padding: 16 },
   sectionHeader: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -181,12 +167,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginVertical: 8,
   },
-  selectedItem: {
-    backgroundColor: colors.lightBlue,
-    borderColor: colors.darkBlue,
-  },
-  text: {
-    color: colors.darkBlue,
-    fontSize: 16,
-  },
+  selectedItem: { backgroundColor: colors.lightBlue, borderColor: colors.darkBlue },
+  text: { color: colors.darkBlue, fontSize: 16 },
 });

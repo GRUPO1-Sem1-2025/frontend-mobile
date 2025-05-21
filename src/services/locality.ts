@@ -1,10 +1,15 @@
 import { ApiLocality, Locality } from '../types/locality';
 import { BASE_URL } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export async function getLocalities(): Promise<Locality[]> {
-  const resp = await fetch(
-    `${BASE_URL}/localidades/obtenerLocalidadesActivas`
-  );
+
+    const url = `${BASE_URL}/localidades/obtenerLocalidadesActivas`;
+    const userToken = await AsyncStorage.getItem('userToken');
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`},
+    });
   if (!resp.ok) {
     throw new Error('Error cargando localidades');
   }
