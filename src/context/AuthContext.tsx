@@ -111,6 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       body: JSON.stringify({ email, password }),
     });
     if (!resp.ok) {
+      console.log('Error en login:', resp.status, resp.body);
       throw new Error('E-mail o contraseña inválidos');
     }
     // backend envía código por mail

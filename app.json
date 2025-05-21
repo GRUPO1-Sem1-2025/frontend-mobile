@@ -19,16 +19,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "tecnobus.android"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "API_URL": "http://backend.tecnobus.uy",
+      "API_URL": "https://backend.tecnobus.uy",
       "LAN_IP": "192.168.1.65",
       "eas": {
-        "projectId": "54869248-e0e9-475d-afca-76f04ecb06de"
+        "projectId": "1d9f88d3-4481-4ca0-8ecc-9f7f4d469fb1"
       }
     }
   }
