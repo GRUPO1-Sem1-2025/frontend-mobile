@@ -1,6 +1,4 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
+import jwtDecode from 'jwt-decode';
 
 export async function registerForPushNotificationsAsync(tokenJWT) {
   if (!Device.isDevice) return;
@@ -14,14 +12,12 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Permisos de notificación denegados');
     return;
   }
 
   let expoPushToken;
 
   if (__DEV__) {
-    // Token de prueba para desarrollo (no sirve para enviar push reales)
     expoPushToken = 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]';
     console.warn('🚨 Usando token simulado. En modo producción se obtiene el real.');
   } else {
@@ -31,16 +27,23 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
     expoPushToken = result.data;
   }
 
-  console.log('Expo Push Token:', expoPushToken);
+  let userId;
+  try {
+    const decoded = jwtDecode(tokenJWT);
+    userId = decoded?.id;
+  } catch (err) {
+    console.error('No se pudo decodificar el token', err);
+    return;
+  }
 
   try {
-    await fetch('http://tecnobus.uy/api/push-token', {
+    await fetch(`${BASE_URL}/token/guardarToken`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenJWT}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ expoToken: expoPushToken }),
+      body: JSON.stringify({ id_usuario: userId, expoToken: expoPushToken }),
     });
   } catch (err) {
     console.error('Error al enviar el token al backend', err);

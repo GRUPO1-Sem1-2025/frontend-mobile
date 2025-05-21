@@ -1,42 +1,48 @@
-import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { useRoute, useNavigation } from '@react-navigation/native';
 
-type Params = {
-  amount: string;
-};
+import React from 'react';
+import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { WebView } from 'react-native-webview';
+import { useNavigation } from '@react-navigation/native';
 
 export default function PayPalWebView() {
-  const { amount } = useRoute().params as Params;
   const navigation = useNavigation<any>();
 
   const htmlContent = `
+    <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
         <script src="https://www.paypal.com/sdk/js?client-id=AUI5UJDmsDpuR4hnwRPWBFeK47ilulQzbNJoE3yKRjRgLY5HRLSntl0tdaT0MTbWQG79oaaCeQt-OcpL"></script>
         <style>
-          body { font-family: sans-serif; padding: 20px; }
-          #paypal-button-container { margin-top: 50px; }
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+          }
+          #paypal-button-container {
+            margin-top: 50px;
+          }
         </style>
       </head>
       <body>
-        <h2>Pagar con PayPal</h2>
+        <h3>Pagar con PayPal</h3>
         <div id="paypal-button-container"></div>
         <script>
-          const amount = "${amount}";
-
           paypal.Buttons({
             createOrder: function(data, actions) {
               return actions.order.create({
-                purchase_units: [{ amount: { value: amount } }]
+                purchase_units: [{ amount: { value: '10.00' } }]
               });
             },
             onApprove: function(data, actions) {
-              window.ReactNativeWebView.postMessage('PAYMENT_SUCCESS');
+              window.location.href = "https://success.com";
             },
             onCancel: function(data) {
-              window.ReactNativeWebView.postMessage('PAYMENT_CANCEL');
+              window.location.href = "https://cancel.com";
+            },
+            onError: function(err) {
+              window.location.href = "https://error.com";
             }
           }).render('#paypal-button-container');
         </script>
@@ -48,18 +54,26 @@ export default function PayPalWebView() {
     <WebView
       originWhitelist={['*']}
       source={{ html: htmlContent }}
-      onMessage={({ nativeEvent }) => {
-        if (nativeEvent.data === 'PAYMENT_SUCCESS') {
-          alert('✅ Pago exitoso');
+      javaScriptEnabled={true}
+      domStorageEnabled={true}
+      onNavigationStateChange={(event) => {
+        const url = event.url;
+        if (url.includes('success.com')) {
+          Alert.alert('✅ Pago exitoso');
           navigation.goBack();
-        } else if (nativeEvent.data === 'PAYMENT_CANCEL') {
-          alert('❌ Pago cancelado');
+        } else if (url.includes('cancel.com')) {
+          Alert.alert('❌ Pago cancelado');
+          navigation.goBack();
+        } else if (url.includes('error.com')) {
+          Alert.alert('🚨 Error durante el pago');
           navigation.goBack();
         }
       }}
       startInLoadingState
       renderLoading={() => (
-        <View style={styles.center}><ActivityIndicator size="large" /></View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#0000ff" />
+        </View>
       )}
     />
   );
