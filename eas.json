@@ -9,9 +9,15 @@
       "distribution": "internal"
     },
     "preview": {
+      "hooks": {
+        "pre-install": "./eas-build-pre-install.js"
+      },
       "distribution": "internal"
     },
     "production": {
+      "hooks": {
+        "pre-install": "./eas-build-pre-install.js"
+      },
       "autoIncrement": true
     }
   },
