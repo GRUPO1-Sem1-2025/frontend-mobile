@@ -40,5 +40,12 @@
     "dotenv": "^16.5.0",
     "typescript": "^5.8.3"
   },
+  "eas": {
+    "build": {
+      "hooks": {
+        "pre-install": "node eas-build-pre-install.js"
+      }
+    }
+  },
   "private": true
 }
