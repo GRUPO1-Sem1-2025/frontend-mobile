@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -7,8 +8,9 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Trip } from '../../types/trips';
@@ -35,7 +37,6 @@ type RouteParams = {
 
 export default function PaymentScreen() {
   const route = useRoute();
-  const navigation = useNavigation<any>();
   const {
     origin,
     destination,
@@ -80,10 +81,38 @@ export default function PaymentScreen() {
     : 0;
   const totalPrice = priceOut + priceRet;
 
-  const handlePayPal = () => {
-    navigation.navigate('PayPalWebView', {
-      amount: totalPrice.toFixed(2),
-    });
+  const handleStripeCheckout = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.append('success_url', 'http://tecnobus.uy:8090/payment-success.html');
+      params.append('cancel_url',  'http://tecnobus.uy:8090/payment-cancel.html');
+      params.append('mode', 'payment');
+  
+      // Line items (solo uno en este ejemplo)
+      params.append('line_items[0][price_data][currency]', 'uyu');
+      params.append('line_items[0][price_data][product_data][name]', 'Pasaje de ómnibus');
+      params.append('line_items[0][price_data][unit_amount]', String(totalPrice * 100)); // monto en centavos
+      params.append('line_items[0][quantity]', '1');
+  
+      const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer sk_test_51RRKLoFPq0Q9sdAsgvw0N8vMsfNw7LKWoClRQbOV4Ey08RAC2BCBP5QnXXzfdqCGYrTtMl1PTpJ0Pf0Z9bZ9wLvw00Fw1fuXhI',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+  
+      const data = await response.json();
+      if (data.url) {
+        Linking.openURL(data.url);
+      } else {
+        console.error(data);
+        Alert.alert('Error', 'No se pudo iniciar el pago');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Algo salió mal al iniciar el pago');
+    }
   };
 
   const handleGeneratePDF = async () => {
@@ -127,10 +156,8 @@ export default function PaymentScreen() {
       <View style={styles.block}>
         <Text style={styles.label}>Origen → Destino:</Text>
         <Text style={styles.value}>{originName} → {destinationName}</Text>
-
         <Text style={styles.label}>Fecha Ida:</Text>
         <Text style={styles.value}>{formatDate(departDate)}</Text>
-
         {tripType === 'roundtrip' && returnDate && (
           <>
             <Text style={styles.label}>Fecha Vuelta:</Text>
@@ -170,9 +197,9 @@ export default function PaymentScreen() {
 
       <View style={styles.payButton}>
         <Button
-          title="Pagar con PayPal"
+          title="Pagar con Stripe"
           color={colors.solarYellow}
-          onPress={handlePayPal}
+          onPress={handleStripeCheckout}
         />
       </View>
 

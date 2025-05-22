@@ -4,12 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 const jwtDecode: (token: string) => { exp: number } = require('jwt-decode');
 
-// Leer API_URL y LAN_IP de app.json (expo.extra)
-const config = Constants.expoConfig ?? Constants.manifest!;
-const { API_URL, LAN_IP } = config.extra as {
+
+const extra = (Constants.expoConfig?.extra || {}) as {
   API_URL: string;
   LAN_IP:  string;
 };
+
+const { API_URL, LAN_IP } = extra;
 
 function resolveBaseUrl() {
   if (__DEV__) {
@@ -111,7 +112,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       body: JSON.stringify({ email, password }),
     });
     if (!resp.ok) {
-      console.log('Error en login:', resp.status, resp.body);
       throw new Error('E-mail o contraseña inválidos');
     }
     // backend envía código por mail

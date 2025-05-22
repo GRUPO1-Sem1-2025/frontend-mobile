@@ -4,7 +4,6 @@ import AppDrawer from './AppDrawer';
 import AvailableTripsScreen from '../screens/AvailableTripScreen/AvailableTripScreen';
 import BusSelectionScreen from '../screens/BusSelectionScreen/BusSelectionScreen';
 import PaymentScreen from '../screens/PaymentScreen/PaymentScreen';
-import PayPalWebView from '../screens/PaymentScreen/PaypalView';
 import { Trip } from '../types/trips';
 
 export type AppStackParamList = {
@@ -62,11 +61,6 @@ export default function AppStack() {
         name="Payment"
         component={PaymentScreen}
         options={{ title: 'Pago' }}
-      />
-      <Stack.Screen
-        name="PayPalWebView"
-        component={PayPalWebView}
-        options={{ title: 'Pagar con PayPal' }}
       />
     </Stack.Navigator>
   );

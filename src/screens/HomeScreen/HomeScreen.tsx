@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback, useEffect } from 'react';
+import React, { useState, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,32 +12,14 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import { getLocalities } from '../../services/locality';
 import { Locality } from '../../types/locality';
-
-/* --NOTIFICATIONES--
-
 import { registerForPushNotificationsAsync } from '../../notifications/registerPush';
-import * as Notifications from 'expo-notifications';
 
-🟨 Handler global para mostrar notificaciones en pantalla
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true, // ✅ nuevo campo requerido
-    shouldShowList: true    // ✅ nuevo campo requerido
-  }),
-}); 
-*/
-
-// Paleta de colores
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
@@ -55,6 +37,7 @@ export default function HomeScreen() {
   const [loadingLoc, setLoadingLoc] = useState(false);
   const [errorLoc, setErrorLoc] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const alreadyRegistered = useRef(false);
 
   const loadLocalities = async () => {
     setLoadingLoc(true);
@@ -72,7 +55,12 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadLocalities();
-    },[])
+
+      if (token && !alreadyRegistered.current) {
+        alreadyRegistered.current = true;
+        registerForPushNotificationsAsync(token);
+      }
+    }, [token])
   );
 
   const onRefresh = async () => {
@@ -225,28 +213,6 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>{token ? '¡Autenticado!' : 'No autenticado.'}</Text>
           <Button title="Cerrar sesión" onPress={logout} />
         </View>
-
-        {/* --NOTIFICACIONES--
-      
-        <View style={{ marginTop: 20 }}>
-          <Button
-            title="Simular notificación local"
-            onPress={async () => {
-              try {
-                const id = await Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: 'Notificación local',
-                    body: 'Ejemplo de notificacion',
-                  },
-                  trigger: null,
-                });
-                console.log('✅ Notificación local agendada con ID:', id);
-              } catch (err) {
-                console.error('❌ Error al lanzar notificación local:', err);
-              }
-            }}
-          />
-        </View> */}
       </ScrollView>
     </KeyboardAvoidingView>
   );
