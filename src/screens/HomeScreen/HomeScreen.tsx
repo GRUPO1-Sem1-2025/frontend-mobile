@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback, useRef } from 'react';
+import React, { useState, useContext, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -55,13 +55,17 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadLocalities();
-
-      if (token && !alreadyRegistered.current) {
-        alreadyRegistered.current = true;
-        registerForPushNotificationsAsync(token);
-      }
-    }, [token])
+    }, [])
   );
+
+  // ✅ Se asegura que si el token llega luego, se registre la primera vez
+  useEffect(() => {
+    if (token && !alreadyRegistered.current) {
+      alreadyRegistered.current = true;
+      console.log('🔁 Token detectado en useEffect, registrando push...');
+      registerForPushNotificationsAsync(token);
+    }
+  }, [token]);
 
   const onRefresh = async () => {
     setRefreshing(true);
