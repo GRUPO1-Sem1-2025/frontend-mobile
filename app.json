@@ -21,8 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "tecnobus.android",
-      "googleServicesFile": "android/app/google-services.json"
+      "package": "tecnobus.android"
     },
     "web": {
       "favicon": "./assets/favicon.png"
