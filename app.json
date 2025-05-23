@@ -34,7 +34,14 @@
       }
     },
     "plugins": [
-      "expo-build-properties"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "googleServicesFile": "android/app/google-services.json"
+          }
+        }
+      ]
     ]
   }
 }
