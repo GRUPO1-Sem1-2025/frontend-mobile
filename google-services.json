@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "183840597241",
+    "project_id": "poc-frontend-mobile",
+    "storage_bucket": "poc-frontend-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:183840597241:android:182bea71adf0bb2f55ee28",
+        "android_client_info": {
+          "package_name": "tecnobus.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAP9NmvZMMU1gCyujnBk1GujxczUHM2YT4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

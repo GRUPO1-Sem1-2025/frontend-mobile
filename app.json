@@ -17,11 +17,13 @@
       "supportsTablet": true
     },
     "android": {
+
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "tecnobus.android"
+      "package": "tecnobus.android",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,16 +34,6 @@
       "eas": {
         "projectId": "1d9f88d3-4481-4ca0-8ecc-9f7f4d469fb1"
       }
-    },
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "googleServicesFile": "android/app/google-services.json"
-          }
-        }
-      ]
-    ]
+    }
   }
 }
