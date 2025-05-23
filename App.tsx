@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import Constants from 'expo-constants';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { registerForPushNotificationsAsync } from './src/notifications/registerPush';
@@ -14,17 +15,21 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   useEffect(() => {
     AsyncStorage.getItem('userToken').then(userId => {
-      registerForPushNotificationsAsync(userId);
+      if (userId) {
+        registerForPushNotificationsAsync(userId);
+      }
     });
   }, []);
 
+  const linkingPrefix = Constants.expoConfig?.extra?.linkingPrefix ?? 'https://tecnobus.dev';
+
   const linking = {
-    prefixes: ['tecnobus://'],
+    prefixes: [linkingPrefix, 'tecnobus://'],
     config: {
       screens: {
         PaymentSuccess: 'payment-success',
         PaymentCancel: 'payment-cancel',
-        AppDrawer: '*', // wildcard para permitir rutas internas sin errores
+        AppDrawer: '*',
       },
     },
   };

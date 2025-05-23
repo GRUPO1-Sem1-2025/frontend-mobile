@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "schema": "tecnobus",
+    "scheme": "tecnobus",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -33,7 +33,8 @@
       "LAN_IP": "192.168.1.65",
       "eas": {
         "projectId": "1d9f88d3-4481-4ca0-8ecc-9f7f4d469fb1"
-      }
+      },
+       "linkingPrefix": "https://tecnobus.dev"
     }
   }
 }
