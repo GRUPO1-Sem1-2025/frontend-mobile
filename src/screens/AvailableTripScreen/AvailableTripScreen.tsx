@@ -6,12 +6,24 @@ import {
   SectionList,
   StyleSheet,
   TouchableOpacity,
-  Button,
   Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getAvailableTrips } from '../../services/trips';
 import { Trip } from '../../types/trips';
+import { Ionicons } from '@expo/vector-icons';
+import * as Animatable from 'react-native-animatable';
+
+const colors = {
+  solarYellow: '#f9c94e',
+  busWhite: '#ffffff',
+  skyBlue: '#c6eefc',
+  darkBlue: '#1f2c3a',
+  lightBlue: '#c6eefc',
+  midBlue: '#91d5f4',
+  red: '#ff6b6b',
+  green: '#3cb371',
+};
 
 type RouteParams = {
   origin: number;
@@ -19,15 +31,6 @@ type RouteParams = {
   tripType: 'oneway' | 'roundtrip';
   departDate: Date;
   returnDate?: Date;
-};
-
-const colors = {
-  solarYellow: '#f9c94e',
-  busWhite: '#ffffff',
-  skyBlue: '#69c8f1',
-  darkBlue: '#1f2c3a',
-  lightBlue: '#c6eefc',
-  midBlue: '#91d5f4',
 };
 
 export default function AvailableTripsScreen() {
@@ -40,6 +43,7 @@ export default function AvailableTripsScreen() {
   const [loading, setLoading] = useState(false);
   const [selectedOutboundTrip, setSelectedOutboundTrip] = useState<Trip | null>(null);
   const [selectedReturnTrip, setSelectedReturnTrip] = useState<Trip | null>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +78,20 @@ export default function AvailableTripsScreen() {
     selectedOutboundTrip !== null &&
     (tripType === 'oneway' || selectedReturnTrip !== null);
 
+  const toggleSelection = (trip: Trip, isReturn: boolean) => {
+    const isSelected = isReturn
+      ? selectedReturnTrip?.viajeId === trip.viajeId
+      : selectedOutboundTrip?.viajeId === trip.viajeId;
+
+    setLastSelectedId(trip.viajeId);
+
+    if (isReturn) {
+      setSelectedReturnTrip(isSelected ? null : trip);
+    } else {
+      setSelectedOutboundTrip(isSelected ? null : trip);
+    }
+  };
+
   const renderTrip = (
     trip: Trip,
     index: number,
@@ -83,20 +101,36 @@ export default function AvailableTripsScreen() {
       ? selectedReturnTrip?.viajeId === trip.viajeId
       : selectedOutboundTrip?.viajeId === trip.viajeId;
 
+    const isUnavailable = trip.cantAsientosDisponibles === 0;
+
+    const animationType = trip.viajeId === lastSelectedId && isSelected ? 'bounceIn' : undefined;
+    const AnimatedView = animationType ? Animatable.View : View;
+
     return (
       <TouchableOpacity
         key={`${isReturn ? 'ret' : 'out'}-${trip.viajeId}`}
-        style={[styles.item, isSelected && styles.selectedItem]}
-        onPress={() =>
-          isReturn
-            ? setSelectedReturnTrip(trip)
-            : setSelectedOutboundTrip(trip)
-        }
+        onPress={() => toggleSelection(trip, isReturn)}
+        disabled={isUnavailable}
       >
-        <Text style={styles.text}>Salida: {trip.horaInicio}</Text>
-        <Text style={styles.text}>Llegada: {trip.horaFin}</Text>
-        <Text style={styles.text}>Asientos: {trip.cantAsientosDisponibles}</Text>
-        <Text style={styles.text}>Precio: ${trip.precioPasaje}</Text>
+        <AnimatedView
+          animation={animationType}
+          duration={400}
+          style={[styles.item, isUnavailable && styles.unavailableItem, isSelected && styles.selectedItem]}
+        >
+          <View style={styles.rowBetween}>
+            <Text style={styles.text}>Salida: {trip.horaInicio}</Text>
+            {isSelected && <Ionicons name="checkmark-circle" size={20} color={colors.green} />}
+          </View>
+          <Text style={styles.text}>Llegada: {trip.horaFin}</Text>
+          <Text style={styles.text}>Asientos: {trip.cantAsientosDisponibles}</Text>
+          <Text style={styles.text}>Precio: ${trip.precioPasaje}</Text>
+          {isUnavailable && (
+            <View style={styles.unavailableLabel}>
+              <Ionicons name="close-circle" size={16} color={colors.red} style={{ marginRight: 4 }} />
+              <Text style={styles.unavailableText}>Sin asientos disponibles</Text>
+            </View>
+          )}
+        </AnimatedView>
       </TouchableOpacity>
     );
   };
@@ -105,6 +139,14 @@ export default function AvailableTripsScreen() {
     { title: 'Viaje de Ida', data: outboundTrips },
     ...(tripType === 'roundtrip' ? [{ title: 'Viaje de Vuelta', data: returnTrips }] : []),
   ];
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color={colors.darkBlue} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -118,10 +160,8 @@ export default function AvailableTripsScreen() {
           renderTrip(item, index, section.title === 'Viaje de Vuelta')
         }
         ListFooterComponent={() => (
-          <Button
-            title="Continuar"
-            color={colors.solarYellow}
-            disabled={!canContinue}
+          <TouchableOpacity
+            style={[styles.continueButton, !canContinue && styles.disabledButton]}
             onPress={() =>
               navigation.navigate('BusSelection', {
                 tripType,
@@ -129,15 +169,18 @@ export default function AvailableTripsScreen() {
                 returnViajeId: selectedReturnTrip?.viajeId ?? null,
                 busId: selectedOutboundTrip?.busId,
                 returnBusId: selectedReturnTrip?.busId ?? null,
-                outboundTrip: selectedOutboundTrip, // ✅
-                returnTrip: selectedReturnTrip,     // ✅
+                outboundTrip: selectedOutboundTrip,
+                returnTrip: selectedReturnTrip,
                 origin,
                 destination,
                 departDate: departDate.toISOString(),
                 returnDate: returnDate?.toISOString() ?? null,
               })
             }
-          />
+            disabled={!canContinue}
+          >
+            <Text style={styles.continueButtonText}>Continuar</Text>
+          </TouchableOpacity>
         )}
         contentContainerStyle={styles.listContainer}
       />
@@ -163,10 +206,52 @@ const styles = StyleSheet.create({
     backgroundColor: colors.busWhite,
     borderColor: colors.midBlue,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 12,
     marginVertical: 8,
   },
-  selectedItem: { backgroundColor: colors.lightBlue, borderColor: colors.darkBlue },
-  text: { color: colors.darkBlue, fontSize: 16 },
+  selectedItem: {
+    backgroundColor: '#e8fff1',
+    borderColor: colors.green,
+    borderWidth: 2,
+  },
+  unavailableItem: {
+    borderColor: colors.red,
+    borderWidth: 2,
+    backgroundColor: '#fff5f5',
+  },
+  text: {
+    color: colors.darkBlue,
+    fontSize: 16,
+  },
+  unavailableLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  unavailableText: {
+    color: colors.red,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  continueButton: {
+    backgroundColor: colors.solarYellow,
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  disabledButton: {
+    backgroundColor: '#ddd',
+  },
+  continueButtonText: {
+    color: colors.darkBlue,
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });

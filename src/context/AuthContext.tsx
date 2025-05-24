@@ -1,13 +1,13 @@
+// src/context/AuthContext.tsx
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 const jwtDecode: (token: string) => { exp: number } = require('jwt-decode');
 
-
 const extra = (Constants.expoConfig?.extra || {}) as {
   API_URL: string;
-  LAN_IP:  string;
+  LAN_IP: string;
 };
 
 const { API_URL, LAN_IP } = extra;
@@ -35,8 +35,10 @@ export type AuthContextType = {
     email: string,
     password: string,
     ci: string,
-    fecNac: string
-  ) => Promise<void>;
+    fecNac: string,
+    categoria: string[],
+    matricula?: string
+  ) => Promise<string>;
   requestCode: (email: string, password: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -44,18 +46,19 @@ export type AuthContextType = {
 
 export const AuthContext = createContext<AuthContextType>({
   token: null,
-  register: async () => {},
+  register: async () => '',
   requestCode: async () => {},
   verifyCode: async () => {},
   logout: async () => {},
 });
 
-interface AuthProviderProps { children: ReactNode; }
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null);
 
-  // Comprueba si el JWT expiró
   const isTokenExpired = (jwt: string): boolean => {
     try {
       const { exp } = jwtDecode(jwt);
@@ -70,7 +73,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setToken(null);
   };
 
-  // Valida token al iniciar la app
   const validateToken = async () => {
     const stored = await AsyncStorage.getItem('userToken');
     if (stored) {
@@ -83,28 +85,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Registro: devuelve { token } directamente
   const register = async (
     nombre: string,
     apellido: string,
     email: string,
     password: string,
-    ci : string
-  ) => {
+    ci: string,
+    fecNac: string,
+    categoria: string[],
+    matricula?: string
+  ): Promise<string> => {
     const resp = await fetch(`${BASE_URL}/usuarios/registrarse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, apellido, email, password }),
+      body: JSON.stringify({ nombre, apellido, email, password, ci, fecNac, categoria, matricula }),
     });
+
+    const json = await resp.json();
     if (!resp.ok) {
-      throw new Error('No se pudo registrar. Verifica tus datos.');
+      throw new Error(json?.mensaje || 'No se pudo registrar.');
     }
-    const { token: jwt } = await resp.json();
-    await AsyncStorage.setItem('userToken', jwt);
-    setToken(jwt);
+
+    // El backend solo devuelve mensaje, no token
+    return json?.mensaje || 'Registro exitoso';
   };
 
-  // Paso 1: login envía código
   const requestCode = async (email: string, password: string) => {
     const resp = await fetch(`${BASE_URL}/usuarios/login`, {
       method: 'POST',
@@ -114,25 +119,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!resp.ok) {
       throw new Error('E-mail o contraseña inválidos');
     }
-    // backend envía código por mail
   };
 
-  // Paso 2: verifica código y guarda token
   const verifyCode = async (email: string, code: string) => {
     const resp = await fetch(`${BASE_URL}/usuarios/verificarCodigo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, codigo: code }),
     });
+
     let data: any;
     try {
       data = await resp.json();
     } catch {
       throw new Error('Respuesta inesperada del servidor');
     }
+
     if (!resp.ok || !data.token) {
       throw new Error(data.error || 'Código inválido');
     }
+
     await AsyncStorage.setItem('userToken', data.token);
     setToken(data.token);
   };

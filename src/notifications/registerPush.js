@@ -87,10 +87,8 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
 
     if (!res.ok) {
       console.error('[🟢 PUSH] ❌ Fallo al enviar token:', res.status);
-      Alert.alert('Notificaciones', `Error al registrar token. Código: ${res.status}`);
     } else {
       console.log('[🟢 PUSH] ✅ Token registrado exitosamente');
-      Alert.alert('Notificaciones', 'Notificaciones habilitadas correctamente 🎉');
     }
   } catch (err) {
     console.error('[🟢 PUSH] ❌ Error al hacer fetch a guardarToken:', err);

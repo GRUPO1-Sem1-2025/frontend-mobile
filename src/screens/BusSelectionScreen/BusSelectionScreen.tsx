@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,25 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Button,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getActiveBuses } from '../../services/buses';
 import { getAvailableSeats } from '../../services/seats';
+import { reservarPasaje } from '../../services/purchases';
+import { AuthContext } from '../../context/AuthContext';
 import { Bus } from '../../types/bus';
 import { Trip } from '../../types/trips';
 
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
-  skyBlue: '#69c8f1',
+  skyBlue: '#c6eefc',
   darkBlue: '#1f2c3a',
   lightBlue: '#c6eefc',
   midBlue: '#91d5f4',
+  red: '#ff6b6b',
+  green: '#3cb371',
+  gray: '#e0e0e0',
 };
 
 type RouteParams = {
@@ -54,6 +58,7 @@ export default function BusSelectionScreen() {
   } = useRoute().params as RouteParams;
 
   const navigation = useNavigation<any>();
+  const { token } = useContext(AuthContext);
 
   const [busOut, setBusOut] = useState<Bus | null>(null);
   const [busRet, setBusRet] = useState<Bus | null>(null);
@@ -62,6 +67,7 @@ export default function BusSelectionScreen() {
   const [selOut, setSelOut] = useState<number[]>([]);
   const [selRet, setSelRet] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reserving, setReserving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -99,18 +105,15 @@ export default function BusSelectionScreen() {
     return () => { active = false; };
   }, [tripType, viajeId, returnViajeId, busId, returnBusId]);
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.darkBlue} size="large" />
-      </View>
-    );
-  }
+  const toggleSeat = (num: number, outbound: boolean) => {
+    if (outbound) {
+      setSelOut(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
+    } else {
+      setSelRet(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
+    }
+  };
 
-  const buildMatrix = (
-    bus: Bus,
-    seats: number[]
-  ): ({ number: number; available: boolean } | null)[][] => {
+  const buildMatrix = (bus: Bus, seats: number[]): ({ number: number; available: boolean } | null)[][] => {
     const total = bus.cant_asientos;
     const cols = 4;
     const rows = Math.ceil(total / cols);
@@ -120,34 +123,67 @@ export default function BusSelectionScreen() {
       const row: ({ number: number; available: boolean } | null)[] = [];
       for (let c = 0; c < cols; c++) {
         const num = r * cols + c + 1;
-        row.push(
-          num <= total
-            ? { number: num, available: seats.includes(num) }
-            : null
-        );
+        if (num <= total) {
+          row.push({ number: num, available: seats.includes(num) });
+        } else {
+          row.push(null);
+        }
       }
       matrix.push(row);
     }
-
     return matrix;
   };
 
-  const toggleSeat = (num: number, outbound: boolean) => {
-    if (outbound) {
-      setSelOut(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
-    } else {
-      setSelRet(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
+  const handleReservar = async () => {
+    if (!token) return Alert.alert('Error', 'Sesión expirada');
+    try {
+      setReserving(true);
+      await reservarPasaje(token, viajeId, selOut);
+      if (tripType === 'roundtrip' && returnViajeId) {
+        await reservarPasaje(token, returnViajeId, selRet);
+      }
+      navigation.navigate('Payment', {
+        tripType,
+        outboundTrip,
+        returnTrip,
+        outboundSeats: selOut,
+        returnSeats: selRet,
+        departDate,
+        returnDate,
+        origin,
+        destination,
+      });
+    } catch (e) {
+      Alert.alert('Error', (e as Error).message);
+    } finally {
+      setReserving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.darkBlue} size="large" />
+      </View>
+    );
+  }
+
   const matrixOut = busOut ? buildMatrix(busOut, outSeats) : [];
-  const matrixRet = tripType === 'roundtrip' && busRet && retSeats.length > 0
-    ? buildMatrix(busRet, retSeats)
-    : [];
+  const matrixRet = tripType === 'roundtrip' && busRet ? buildMatrix(busRet, retSeats) : [];
+  const isDisabled = selOut.length === 0 || (tripType === 'roundtrip' && selRet.length === 0);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Seleccioná tu asiento</Text>
+
+      <View style={styles.legend}>
+        <View style={[styles.legendItem, { backgroundColor: colors.gray }]} />
+        <Text style={styles.legendText}>Disponible</Text>
+        <View style={[styles.legendItem, { backgroundColor: colors.green }]} />
+        <Text style={styles.legendText}>Seleccionado</Text>
+        <View style={[styles.legendItem, { backgroundColor: colors.red }]} />
+        <Text style={styles.legendText}>Ocupado</Text>
+      </View>
 
       {busOut && (
         <>
@@ -159,7 +195,7 @@ export default function BusSelectionScreen() {
                   key={`out-${seat.number}`}
                   style={[
                     styles.seat,
-                    !seat.available && styles.seatUnavailable,
+                    seat.available ? styles.seatAvailable : styles.seatUnavailable,
                     selOut.includes(seat.number) && styles.seatSelected,
                     ci === 1 && styles.aisle,
                   ]}
@@ -186,7 +222,7 @@ export default function BusSelectionScreen() {
                   key={`ret-${seat.number}`}
                   style={[
                     styles.seat,
-                    !seat.available && styles.seatUnavailable,
+                    seat.available ? styles.seatAvailable : styles.seatUnavailable,
                     selRet.includes(seat.number) && styles.seatSelected,
                     ci === 1 && styles.aisle,
                   ]}
@@ -203,38 +239,62 @@ export default function BusSelectionScreen() {
         </>
       )}
 
-      <Button
-        title="Ir a pagar"
-        color={colors.solarYellow}
-        disabled={selOut.length === 0 || (tripType === 'roundtrip' && selRet.length === 0)}
-        onPress={() =>
-          navigation.navigate('Payment', {
-            tripType,
-            outboundTrip,
-            returnTrip,
-            outboundSeats: selOut,
-            returnSeats: selRet,
-            departDate,
-            returnDate,
-            origin,
-            destination,
-          })
-        }
-      />
+      <TouchableOpacity
+        style={[styles.payButton, (isDisabled || reserving) && styles.disabledButton]}
+        disabled={isDisabled || reserving}
+        onPress={handleReservar}
+      >
+        <Text style={styles.payButtonText}>{reserving ? 'Reservando...' : 'Ir a pagar'}</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: colors.skyBlue, alignItems: 'center' },
+  container: { flex: 1, padding: 16, backgroundColor: colors.skyBlue, alignItems: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.skyBlue },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: colors.darkBlue },
   sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8, color: colors.darkBlue },
   row: { flexDirection: 'row', marginBottom: 8, justifyContent: 'center' },
-  seat: { width: 40, height: 40, borderWidth: 1, borderColor: colors.midBlue, borderRadius: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.busWhite, marginHorizontal: 4 },
-  seatUnavailable: { backgroundColor: '#ccc' },
-  seatSelected: { backgroundColor: colors.lightBlue, borderColor: colors.darkBlue },
+  seat: { width: 40, height: 40, borderWidth: 1, borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginHorizontal: 4 },
+  seatAvailable: { backgroundColor: colors.gray, borderColor: colors.midBlue },
+  seatUnavailable: { backgroundColor: colors.red, borderColor: colors.red },
+  seatSelected: { backgroundColor: colors.green, borderColor: colors.darkBlue },
   seatEmpty: { backgroundColor: 'transparent', borderWidth: 0 },
   seatText: { color: colors.darkBlue },
   aisle: { marginHorizontal: 12 },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    width: 16,
+    height: 16,
+    marginHorizontal: 4,
+    borderRadius: 4,
+  },
+  legendText: {
+    marginRight: 12,
+    color: colors.darkBlue,
+    fontSize: 14,
+  },
+  payButton: {
+    backgroundColor: colors.solarYellow,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  payButtonText: {
+    color: colors.darkBlue,
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc',
+  },
 });

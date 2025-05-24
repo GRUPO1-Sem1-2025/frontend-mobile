@@ -1,9 +1,8 @@
+// src/screens/HomeScreen.tsx
 import React, { useState, useContext, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  Button,
-  ActivityIndicator,
   ScrollView,
   RefreshControl,
   StyleSheet,
@@ -11,10 +10,11 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Modal,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { AuthContext } from '../../context/AuthContext';
 import { getLocalities } from '../../services/locality';
 import { Locality } from '../../types/locality';
@@ -23,7 +23,7 @@ import { registerForPushNotificationsAsync } from '../../notifications/registerP
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
-  skyBlue: '#69c8f1',
+  skyBlue: '#c6eefc',
   darkBlue: '#1f2c3a',
   lightBlue: '#c6eefc',
   midBlue: '#91d5f4',
@@ -31,7 +31,7 @@ const colors = {
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-  const { logout, token } = useContext(AuthContext);
+  const { token } = useContext(AuthContext);
 
   const [localities, setLocalities] = useState<Locality[]>([]);
   const [loadingLoc, setLoadingLoc] = useState(false);
@@ -39,9 +39,15 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const alreadyRegistered = useRef(false);
 
+  const [origin, setOrigin] = useState<number>();
+  const [destination, setDestination] = useState<number>();
+  const [tripType, setTripType] = useState<'oneway' | 'roundtrip'>('oneway');
+  const [departDate, setDepartDate] = useState(new Date());
+  const [returnDate, setReturnDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState<'depart' | 'return' | null>(null);
+
   const loadLocalities = async () => {
     setLoadingLoc(true);
-    setErrorLoc(null);
     try {
       const data = await getLocalities();
       setLocalities(data);
@@ -49,6 +55,7 @@ export default function HomeScreen() {
       setErrorLoc((e as Error).message);
     } finally {
       setLoadingLoc(false);
+      setRefreshing(false);
     }
   };
 
@@ -58,41 +65,12 @@ export default function HomeScreen() {
     }, [])
   );
 
-  // ✅ Se asegura que si el token llega luego, se registre la primera vez
   useEffect(() => {
     if (token && !alreadyRegistered.current) {
       alreadyRegistered.current = true;
-      console.log('🔁 Token detectado en useEffect, registrando push...');
       registerForPushNotificationsAsync(token);
     }
   }, [token]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await loadLocalities();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const [origin, setOrigin] = useState<number>();
-  const [destination, setDestination] = useState<number>();
-  const [tripType, setTripType] = useState<'oneway' | 'roundtrip'>('oneway');
-  const [departDate, setDepartDate] = useState(new Date());
-  const [returnDate, setReturnDate] = useState(new Date());
-  const [showDepartPicker, setShowDepartPicker] = useState(false);
-  const [showReturnPicker, setShowReturnPicker] = useState(false);
-
-  const onDepartChange = (_: DateTimePickerEvent, date?: Date) => {
-    setShowDepartPicker(false);
-    date && setDepartDate(date);
-  };
-
-  const onReturnChange = (_: DateTimePickerEvent, date?: Date) => {
-    setShowReturnPicker(false);
-    date && setReturnDate(date);
-  };
 
   const handleSearch = () => {
     if (origin === destination) {
@@ -112,11 +90,17 @@ export default function HomeScreen() {
     });
   };
 
-  const isSearchDisabled =
-    origin == null ||
-    destination == null ||
-    origin === destination ||
-    (tripType === 'roundtrip' && returnDate < departDate);
+  const getLocalityLabel = (id: number | undefined) => {
+    const locality = localities.find((l) => l.id === id);
+    return locality ? `${locality.nombre}, ${locality.departamento}` : '— selecciona —';
+  };
+
+  const handleDateChange = (_: any, selectedDate?: Date) => {
+    if (!selectedDate) return;
+    if (showDatePicker === 'depart') setDepartDate(selectedDate);
+    if (showDatePicker === 'return') setReturnDate(selectedDate);
+    setShowDatePicker(null);
+  };
 
   return (
     <KeyboardAvoidingView
@@ -126,56 +110,26 @@ export default function HomeScreen() {
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadLocalities} />}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Buscar pasajes de ómnibus</Text>
 
-        {loadingLoc ? (
-          <ActivityIndicator size="large" color={colors.darkBlue} />
-        ) : errorLoc ? (
-          <Text style={styles.error}>{errorLoc}</Text>
-        ) : (
-          <>
-            <Text style={styles.label}>Origen</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={origin}
-                onValueChange={setOrigin}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label="— selecciona —" value={undefined} />
-                {localities.map((l) => (
-                  <Picker.Item
-                    key={l.id}
-                    label={`${l.nombre}, ${l.departamento}`}
-                    value={l.id}
-                  />
-                ))}
-              </Picker>
-            </View>
+        <Text style={styles.label}>Origen</Text>
+        <TouchableOpacity
+          style={styles.dateInput}
+          onPress={() => navigation.navigate('SelectLocation', { setValue: setOrigin, localities, avoidId: destination })}
+        >
+          <Text style={styles.dateText}>{getLocalityLabel(origin)}</Text>
+        </TouchableOpacity>
 
-            <Text style={styles.label}>Destino</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={destination}
-                onValueChange={setDestination}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label="— selecciona —" value={undefined} />
-                {localities.map((l) => (
-                  <Picker.Item
-                    key={l.id}
-                    label={`${l.nombre}, ${l.departamento}`}
-                    value={l.id}
-                  />
-                ))}
-              </Picker>
-            </View>
-          </>
-        )}
+        <Text style={styles.label}>Destino</Text>
+        <TouchableOpacity
+          style={styles.dateInput}
+          onPress={() => navigation.navigate('SelectLocation', { setValue: setDestination, localities, avoidId: origin })}
+        >
+          <Text style={styles.dateText}>{getLocalityLabel(destination)}</Text>
+        </TouchableOpacity>
 
         <View style={styles.tripTypeContainer}>
           {(['oneway', 'roundtrip'] as const).map((type) => (
@@ -191,31 +145,49 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.dateInput} onPress={() => setShowDepartPicker(true)}>
-          <Text style={styles.dateText}>Salida: {departDate.toLocaleDateString()}</Text>
+        <Text style={styles.label}>Fecha de salida</Text>
+        <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker('depart')}>
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={20} color={colors.darkBlue} style={{ marginRight: 8 }} />
+            <Text style={styles.dateText}>{departDate.toLocaleDateString()}</Text>
+          </View>
         </TouchableOpacity>
-        {showDepartPicker && (
-          <DateTimePicker value={departDate} mode="date" display="default" onChange={onDepartChange} />
-        )}
 
         {tripType === 'roundtrip' && (
           <>
-            <TouchableOpacity style={styles.dateInput} onPress={() => setShowReturnPicker(true)}>
-              <Text style={styles.dateText}>Regreso: {returnDate.toLocaleDateString()}</Text>
+            <Text style={styles.label}>Fecha de regreso</Text>
+            <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker('return')}>
+              <View style={styles.dateRow}>
+                <Ionicons name="calendar-outline" size={20} color={colors.darkBlue} style={{ marginRight: 8 }} />
+                <Text style={styles.dateText}>{returnDate.toLocaleDateString()}</Text>
+              </View>
             </TouchableOpacity>
-            {showReturnPicker && (
-              <DateTimePicker value={returnDate} mode="date" display="default" onChange={onReturnChange} />
-            )}
           </>
         )}
 
-        <View style={styles.searchBtn}>
-          <Button title="Buscar pasajes" color={colors.solarYellow} onPress={handleSearch} disabled={isSearchDisabled} />
-        </View>
+        <Modal visible={showDatePicker !== null} transparent animationType="slide">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <DateTimePicker
+                value={showDatePicker === 'return' ? returnDate : departDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                minimumDate={showDatePicker === 'return' ? departDate : new Date()}
+                maximumDate={new Date('2100-01-01')}
+                themeVariant="light"
+              />
+            </View>
+          </View>
+        </Modal>
 
-        <View style={styles.footer}>
-          <Text style={styles.subtitle}>{token ? '¡Autenticado!' : 'No autenticado.'}</Text>
-          <Button title="Cerrar sesión" onPress={logout} />
+        <View style={styles.searchBtn}>
+          <TouchableOpacity
+            onPress={handleSearch}
+            style={styles.registerButton}
+          >
+            <Text style={styles.registerButtonText}>Buscar pasajes</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -226,26 +198,43 @@ const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: colors.skyBlue },
   container: { flexGrow: 1, padding: 16 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: colors.darkBlue },
-  error: { color: 'red', textAlign: 'center', marginVertical: 8 },
   label: { marginTop: 12, fontWeight: '600', color: colors.darkBlue },
-  pickerWrapper: {
+  dateInput: {
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.midBlue,
-    borderRadius: 4,
+    borderRadius: 8,
     marginBottom: 12,
     backgroundColor: colors.busWhite,
-    overflow: 'hidden'
   },
-  picker: { color: colors.darkBlue },
-  pickerItem: { fontSize: 14 },
+  dateText: { color: colors.darkBlue, fontSize: 16 },
+  dateRow: { flexDirection: 'row', alignItems: 'center' },
   tripTypeContainer: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 },
   tripButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.lightBlue },
   tripButtonActive: { backgroundColor: colors.solarYellow },
   tripText: { color: colors.darkBlue },
   tripTextActive: { color: colors.busWhite, fontWeight: 'bold' },
-  dateInput: { padding: 12, borderWidth: 1, borderColor: colors.midBlue, borderRadius: 4, marginBottom: 12, backgroundColor: colors.busWhite },
-  dateText: { color: colors.darkBlue },
   searchBtn: { marginVertical: 16 },
-  footer: { alignItems: 'center', marginTop: 'auto' },
-  subtitle: { marginBottom: 8, color: colors.darkBlue }
+  registerButton: {
+    backgroundColor: colors.solarYellow,
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  registerButtonText: {
+    color: colors.darkBlue,
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
 });

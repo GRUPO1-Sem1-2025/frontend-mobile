@@ -1,9 +1,11 @@
+// src/navigation/AppStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppDrawer from './AppDrawer';
 import AvailableTripsScreen from '../screens/AvailableTripScreen/AvailableTripScreen';
 import BusSelectionScreen from '../screens/BusSelectionScreen/BusSelectionScreen';
 import PaymentScreen from '../screens/PaymentScreen/PaymentScreen';
+import SelectLocationScreen from '../screens/LocationScreen/SelectLocationScreen';
 import { Trip } from '../types/trips';
 
 export type AppStackParamList = {
@@ -14,6 +16,9 @@ export type AppStackParamList = {
     tripType: 'oneway' | 'roundtrip';
     departDate: Date;
     returnDate?: Date;
+  };
+  BusSelection: {
+    busId: number;
   };
   Payment: {
     origin: number;
@@ -26,10 +31,11 @@ export type AppStackParamList = {
     outboundSeats: number[];
     returnSeats?: number[];
   };
-  BusSelection: {
-    busId: number;
+  PayPalWebView: { amount: string };
+  SelectLocation: {
+    localities: { id: number; nombre: string; departamento: string }[];
+    setValue: (id: number) => void;
   };
-  PayPalWebView: { amount: string }; // ✅ NUEVO
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -61,6 +67,11 @@ export default function AppStack() {
         name="Payment"
         component={PaymentScreen}
         options={{ title: 'Pago' }}
+      />
+      <Stack.Screen
+        name="SelectLocation"
+        component={SelectLocationScreen}
+        options={{ title: 'Selecciona una localidad' }}
       />
     </Stack.Navigator>
   );
