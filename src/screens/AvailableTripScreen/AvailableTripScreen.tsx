@@ -148,6 +148,27 @@ export default function AvailableTripsScreen() {
     );
   }
 
+  if (
+    !loading &&
+    outboundTrips.length === 0 &&
+    (tripType === 'oneway' || returnTrips.length === 0)
+  ) {
+    return (
+      <View style={styles.loader}>
+        <Ionicons name="alert-circle" size={48} color={colors.red} style={{ marginBottom: 12 }} />
+        <Text style={styles.noTripsText}>
+          No hay viajes disponibles para la fecha seleccionada.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.changeDateButton}
+        >
+          <Text style={styles.changeDateText}>Cambiar fecha</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SectionList
@@ -190,7 +211,13 @@ export default function AvailableTripsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.skyBlue },
-  loader: { flex: 1, justifyContent: 'center' },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: colors.skyBlue,
+  },
   listContainer: { padding: 16 },
   sectionHeader: {
     fontSize: 20,
@@ -253,5 +280,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  noTripsText: {
+    fontSize: 18,
+    color: colors.darkBlue,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  changeDateButton: {
+    backgroundColor: colors.solarYellow,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  changeDateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.darkBlue,
   },
 });

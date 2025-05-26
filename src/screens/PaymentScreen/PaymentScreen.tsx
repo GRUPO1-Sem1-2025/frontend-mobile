@@ -1,27 +1,20 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  Button,
-  Alert,
   ScrollView,
+  StyleSheet,
   ActivityIndicator,
+  Alert,
   Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Trip } from '../../types/trips';
 import { getLocalities } from '../../services/locality';
-
-const colors = {
-  solarYellow: '#f9c94e',
-  skyBlue: '#69c8f1',
-  darkBlue: '#1f2c3a',
-  busWhite: '#ffffff',
-};
+import { crearSesionStripe } from '../../services/purchases';
+import { Trip } from '../../types/trips';
 
 type RouteParams = {
   origin: number;
@@ -49,8 +42,8 @@ export default function PaymentScreen() {
     returnSeats,
   } = route.params as RouteParams;
 
-  const [originName, setOriginName] = useState<string>('...');
-  const [destinationName, setDestinationName] = useState<string>('...');
+  const [originName, setOriginName] = useState('...');
+  const [destinationName, setDestinationName] = useState('...');
   const [loadingLocs, setLoadingLocs] = useState(true);
 
   useEffect(() => {
@@ -83,35 +76,11 @@ export default function PaymentScreen() {
 
   const handleStripeCheckout = async () => {
     try {
-      const params = new URLSearchParams();
-      params.append('success_url', 'http://tecnobus.uy:8090/payment-success.html');
-      params.append('cancel_url',  'http://tecnobus.uy:8090/payment-cancel.html');
-      params.append('mode', 'payment');
-  
-      // Line items (solo uno en este ejemplo)
-      params.append('line_items[0][price_data][currency]', 'uyu');
-      params.append('line_items[0][price_data][product_data][name]', 'Pasaje de ómnibus');
-      params.append('line_items[0][price_data][unit_amount]', String(totalPrice * 100)); // monto en centavos
-      params.append('line_items[0][quantity]', '1');
-  
-      const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer sk_test_51RRKLoFPq0Q9sdAsgvw0N8vMsfNw7LKWoClRQbOV4Ey08RAC2BCBP5QnXXzfdqCGYrTtMl1PTpJ0Pf0Z9bZ9wLvw00Fw1fuXhI',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
-  
-      const data = await response.json();
-      if (data.url) {
-        Linking.openURL(data.url);
-      } else {
-        console.error(data);
-        Alert.alert('Error', 'No se pudo iniciar el pago');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Algo salió mal al iniciar el pago');
+      const url = await crearSesionStripe(totalPrice);
+      Linking.openURL(url);
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
     }
   };
 
@@ -144,7 +113,7 @@ export default function PaymentScreen() {
   if (loadingLocs) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.darkBlue} />
+        <ActivityIndicator size="large" color="#1f2c3a" />
       </View>
     );
   }
@@ -167,99 +136,108 @@ export default function PaymentScreen() {
       </View>
 
       <View style={styles.block}>
-        <Text style={styles.section}>Ómnibus Ida:</Text>
+        <Text style={styles.label}>Ómnibus Ida:</Text>
         <Text style={styles.value}>
-          {outboundTrip.busId ?? '-'} - {outboundTrip.horaInicio ?? '-'} a {outboundTrip.horaFin ?? '-'}
+          {outboundTrip.busId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}
         </Text>
         <Text style={styles.label}>Asientos Ida:</Text>
-        <Text style={styles.value}>{outboundSeats?.join(', ') || '-'}</Text>
+        <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
         <Text style={styles.label}>Precio Ida:</Text>
         <Text style={styles.value}>${priceOut}</Text>
       </View>
 
       {tripType === 'roundtrip' && returnTrip && returnSeats && (
         <View style={styles.block}>
-          <Text style={styles.section}>Ómnibus Vuelta:</Text>
+          <Text style={styles.label}>Ómnibus Vuelta:</Text>
           <Text style={styles.value}>
-            {returnTrip.busId ?? '-'} - {returnTrip.horaInicio ?? '-'} a {returnTrip.horaFin ?? '-'}
+            {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
           </Text>
           <Text style={styles.label}>Asientos Vuelta:</Text>
-          <Text style={styles.value}>{returnSeats?.join(', ') || '-'}</Text>
+          <Text style={styles.value}>{returnSeats.join(', ')}</Text>
           <Text style={styles.label}>Precio Vuelta:</Text>
           <Text style={styles.value}>${priceRet}</Text>
         </View>
       )}
 
       <View style={styles.block}>
-        <Text style={styles.section}>Total a Pagar:</Text>
+        <Text style={styles.label}>Total a Pagar:</Text>
         <Text style={styles.total}>${totalPrice}</Text>
       </View>
 
-      <View style={styles.payButton}>
-        <Button
-          title="Pagar con Stripe"
-          color={colors.solarYellow}
-          onPress={handleStripeCheckout}
-        />
-      </View>
+      <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
+        <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
+      </TouchableOpacity>
 
-      <View style={styles.payButton}>
-        <Button
-          title="Descargar PDF"
-          color={colors.darkBlue}
-          onPress={handleGeneratePDF}
-        />
-      </View>
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleGeneratePDF}>
+        <Text style={styles.secondaryButtonText}>Descargar PDF</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: 16,
-    backgroundColor: colors.skyBlue,
+    backgroundColor: '#c6eefc',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.skyBlue,
+    backgroundColor: '#c6eefc',
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: colors.darkBlue,
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#1f2c3a',
   },
-  section: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.darkBlue,
-    marginBottom: 4,
+  block: {
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#91d5f4',
+    paddingBottom: 12,
   },
   label: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.darkBlue,
+    color: '#1f2c3a',
     marginTop: 8,
   },
   value: {
     fontSize: 16,
-    color: colors.darkBlue,
+    color: '#1f2c3a',
   },
   total: {
     fontSize: 20,
     fontWeight: 'bold',
     marginVertical: 8,
-    color: colors.darkBlue,
+    color: '#1f2c3a',
   },
-  block: {
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.busWhite,
-  },
-  payButton: {
+  primaryButton: {
+    backgroundColor: '#f9c94e',
+    paddingVertical: 14,
+    borderRadius: 8,
     marginTop: 20,
+  },
+  primaryButtonText: {
+    color: '#1f2c3a',
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  secondaryButton: {
+    backgroundColor: '#1f2c3a',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  secondaryButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });

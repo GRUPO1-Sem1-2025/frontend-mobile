@@ -1,27 +1,80 @@
-// src/services/purchases.ts
-import { BASE_URL } from '../context/AuthContext';
+import Constants from 'expo-constants';
+
+const extra = Constants.expoConfig?.extra || {};
+const STRIPE_API_URL = extra.STRIPE_API_URL;
+const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
+const BASE_URL = extra.BASE_URL;
+
+interface PurchaseRequest {
+  usuarioId: number;
+  viajeId: number;
+  numerosDeAsiento: number[];
+  estadoCompra: 'RESERVADA';
+}
+
+function decodeToken(token: string): { id: number } {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return { id: payload.id };
+  } catch (e) {
+    throw new Error('Token inválido');
+  }
+}
+
 export async function reservarPasaje(
   token: string,
   viajeId: number,
   numerosDeAsiento: number[]
 ): Promise<void> {
-  const usuarioId = JSON.parse(atob(token.split('.')[1])).id;
+  const { id: usuarioId } = decodeToken(token);
 
-  const body = {
+  const body: PurchaseRequest = {
     usuarioId,
     viajeId,
     numerosDeAsiento,
     estadoCompra: 'RESERVADA',
   };
 
-  const url =  `${BASE_URL}/usuarios/comprarPasaje`;
-  const response = await fetch(url, {
+  const response = await fetch(`${BASE_URL}/usuarios/comprarPasaje`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    throw new Error('No se pudo reservar el pasaje');
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData?.message || 'No se pudo reservar el pasaje';
+    throw new Error(message);
   }
+}
+
+export async function crearSesionStripe(totalUYU: number): Promise<string> {
+  const params = new URLSearchParams();
+  params.append('success_url', 'http://tecnobus.uy:8090/payment-success.html');
+  params.append('cancel_url',  'http://tecnobus.uy:8090/payment-cancel.html');
+  params.append('mode', 'payment');
+  params.append('line_items[0][price_data][currency]', 'uyu');
+  params.append('line_items[0][price_data][product_data][name]', 'Pasaje de ómnibus');
+  params.append('line_items[0][price_data][unit_amount]', String(totalUYU * 100));
+  params.append('line_items[0][quantity]', '1');
+
+  const response = await fetch(`${STRIPE_API_URL}/v1/checkout/sessions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.url) {
+    const message = data?.error?.message || 'No se pudo iniciar el pago';
+    throw new Error(message);
+  }
+
+  return data.url;
 }

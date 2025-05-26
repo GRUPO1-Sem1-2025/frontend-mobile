@@ -92,6 +92,5 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
     }
   } catch (err) {
     console.error('[🟢 PUSH] ❌ Error al hacer fetch a guardarToken:', err);
-    Alert.alert('Notificaciones', 'Error al conectar con el servidor.');
   }
 }

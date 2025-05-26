@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getActiveBuses } from '../../services/buses';
 import { getAvailableSeats } from '../../services/seats';
 import { reservarPasaje } from '../../services/purchases';
@@ -67,43 +67,52 @@ export default function BusSelectionScreen() {
   const [selOut, setSelOut] = useState<number[]>([]);
   const [selRet, setSelRet] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Cargando...');
   const [reserving, setReserving] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
 
-    async function load() {
-      try {
-        setLoading(true);
-        const buses = await getActiveBuses();
+      const load = async () => {
+        try {
+          setLoading(true);
+          setLoadingMessage('Recargando asientos...');
+          setSelOut([]);
+          setSelRet([]);
+          const buses = await getActiveBuses();
 
-        const foundOut = buses.find(b => b.id === busId);
-        if (!foundOut) throw new Error(`Bus de ida ID '${busId}' no encontrado`);
-        if (!active) return;
-        setBusOut(foundOut);
-
-        const outData = await getAvailableSeats(viajeId);
-        if (active) setOutSeats(outData);
-
-        if (tripType === 'roundtrip' && returnViajeId && returnBusId) {
-          const foundRet = buses.find(b => b.id === returnBusId);
-          if (!foundRet) throw new Error(`Bus de vuelta ID '${returnBusId}' no encontrado`);
+          const foundOut = buses.find(b => b.id === busId);
+          if (!foundOut) throw new Error(`Bus de ida ID '${busId}' no encontrado`);
           if (!active) return;
-          setBusRet(foundRet);
+          setBusOut(foundOut);
 
-          const retData = await getAvailableSeats(returnViajeId);
-          if (active) setRetSeats(retData);
+          const outData = await getAvailableSeats(viajeId);
+          if (active) setOutSeats(outData);
+
+          if (tripType === 'roundtrip' && returnViajeId && returnBusId) {
+            const foundRet = buses.find(b => b.id === returnBusId);
+            if (!foundRet) throw new Error(`Bus de vuelta ID '${returnBusId}' no encontrado`);
+            if (!active) return;
+            setBusRet(foundRet);
+
+            const retData = await getAvailableSeats(returnViajeId);
+            if (active) setRetSeats(retData);
+          }
+        } catch (e) {
+          Alert.alert('Error', (e as Error).message);
+        } finally {
+          if (active) setLoading(false);
         }
-      } catch (e) {
-        Alert.alert('Error', (e as Error).message);
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
+      };
 
-    load();
-    return () => { active = false; };
-  }, [tripType, viajeId, returnViajeId, busId, returnBusId]);
+      load();
+
+      return () => {
+        active = false;
+      };
+    }, [tripType, viajeId, returnViajeId, busId, returnBusId])
+  );
 
   const toggleSeat = (num: number, outbound: boolean) => {
     if (outbound) {
@@ -164,6 +173,7 @@ export default function BusSelectionScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.darkBlue} size="large" />
+        <Text style={styles.loadingText}>{loadingMessage}</Text>
       </View>
     );
   }
@@ -296,5 +306,10 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#cccccc',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: colors.darkBlue,
   },
 });
