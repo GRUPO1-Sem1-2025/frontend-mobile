@@ -163,6 +163,7 @@ export default function BusSelectionScreen() {
         destination,
       });
     } catch (e) {
+      console.log('Error reservando pasaje:', e);
       Alert.alert('Error', (e as Error).message);
     } finally {
       setReserving(false);

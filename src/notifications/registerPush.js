@@ -6,15 +6,15 @@ import { Alert } from 'react-native';
 import { BASE_URL } from '../context/AuthContext';
 
 export async function registerForPushNotificationsAsync(tokenJWT) {
-  console.log('[🟢 PUSH] Inicio de función registerForPushNotificationsAsync');
+  console.log('[DEBUG registerPush] Inicio de función registerForPushNotificationsAsync');
 
   if (!Device.isDevice && !__DEV__) {
-    console.warn('[🟢 PUSH] No es un dispositivo físico. Cancelando registro.');
+    console.warn('[DEBUG registerPush] No es un dispositivo físico. Cancelando registro.');
     Alert.alert('Notificaciones', 'Solo funcionan en dispositivos físicos.');
     return;
   }
 
-  console.log('[🟢 PUSH] Solicitando permisos...');
+  console.log('[DEBUG registerPush] Solicitando permisos...');
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -23,10 +23,10 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
     finalStatus = status;
   }
 
-  console.log('[🟢 PUSH] Permiso final de notificación:', finalStatus);
+  console.log('[DEBUG registerPush] Permiso final de notificación:', finalStatus);
 
   if (finalStatus !== 'granted') {
-    console.warn('[🟢 PUSH] Permiso de notificaciones denegado');
+    console.warn('[DEBUG registerPush] Permiso de notificaciones denegado');
     Alert.alert('Notificaciones', 'Permiso de notificaciones denegado.');
     return;
   }
@@ -35,17 +35,17 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
 
   if (__DEV__) {
     expoPushToken = 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]';
-    console.log('[🟢 PUSH] Modo desarrollo - token simulado:', expoPushToken);
+    console.log('[DEBUG registerPush] Modo desarrollo - token simulado:', expoPushToken);
   } else {
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      console.log('[🟢 PUSH] Obteniendo token real con projectId:', projectId);
+      console.log('[DEBUG registerPush] Obteniendo token real con projectId:', projectId);
 
       const result = await Notifications.getExpoPushTokenAsync({ projectId });
       expoPushToken = result.data;
-      console.log('[🟢 PUSH] Token real obtenido:', expoPushToken);
+      console.log('[DEBUG registerPush] Token real obtenido:', expoPushToken);
     } catch (err) {
-      console.error('[🟢 PUSH] ❌ Error al obtener token de Expo:', err);
+      console.error('[DEBUG registerPush] ❌ Error al obtener token de Expo:', err);
       Alert.alert('Notificaciones', 'Error al obtener el token de notificación.');
       return;
     }
@@ -55,9 +55,9 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
   try {
     const decoded = jwtDecode(tokenJWT);
     userId = decoded?.id;
-    console.log('[🟢 PUSH] ID de usuario decodificado:', userId);
+    console.log('[DEBUG registerPush] ID de usuario decodificado:', userId);
   } catch (err) {
-    console.error('[🟢 PUSH] ❌ Error al decodificar JWT:', err);
+    console.error('[DEBUG registerPush] ❌ Error al decodificar JWT:', err);
     Alert.alert('Notificaciones', 'Error al decodificar el token de sesión.');
     return;
   }
@@ -69,9 +69,9 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
       token: expoPushToken,
     };
 
-    console.log('[🟢 PUSH] Enviando token al backend...');
-    console.log('[🟢 PUSH] URL:', url);
-    console.log('[🟢 PUSH] Payload:', payload);
+    console.log('[DEBUG registerPush] Enviando token al backend...');
+    console.log('[DEBUG registerPush] URL:', url);
+    console.log('[DEBUG registerPush] Payload:', payload);
 
     const res = await fetch(url, {
       method: 'POST',
@@ -83,14 +83,14 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
     });
 
     const text = await res.text();
-    console.log('[🟢 PUSH] Respuesta del backend:', res.status, text);
+    console.log('[DEBUG registerPush] Respuesta del backend:', res.status, text);
 
     if (!res.ok) {
-      console.error('[🟢 PUSH] ❌ Fallo al enviar token:', res.status);
+      console.error('[DEBUG registerPush] ❌ Fallo al enviar token:', res.status);
     } else {
-      console.log('[🟢 PUSH] ✅ Token registrado exitosamente');
+      console.log('[DEBUG registerPush] ✅ Token registrado exitosamente');
     }
   } catch (err) {
-    console.error('[🟢 PUSH] ❌ Error al hacer fetch a guardarToken:', err);
+    console.error('[DEBUG registerPush] ❌ Error al hacer fetch a guardarToken:', err);
   }
 }

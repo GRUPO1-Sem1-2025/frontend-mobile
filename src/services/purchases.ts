@@ -1,10 +1,11 @@
 import Constants from 'expo-constants';
-
+import { BASE_URL } from '../context/AuthContext';
 const extra = Constants.expoConfig?.extra || {};
 const STRIPE_API_URL = extra.STRIPE_API_URL;
 const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
-const BASE_URL = extra.BASE_URL;
 
+console.log('STRIPE_API_URL:', STRIPE_API_URL);
+console.log('STRIPE_SECRET_KEY:', STRIPE_SECRET_KEY);   
 interface PurchaseRequest {
   usuarioId: number;
   viajeId: number;
@@ -12,6 +13,7 @@ interface PurchaseRequest {
   estadoCompra: 'RESERVADA';
 }
 
+console.log('BASE_URL:', BASE_URL);
 function decodeToken(token: string): { id: number } {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -35,6 +37,7 @@ export async function reservarPasaje(
     estadoCompra: 'RESERVADA',
   };
 
+  console.log(body);
   const response = await fetch(`${BASE_URL}/usuarios/comprarPasaje`, {
     method: 'POST',
     headers: {
@@ -42,7 +45,7 @@ export async function reservarPasaje(
     },
     body: JSON.stringify(body),
   });
-
+  console.log('Reservar pasaje response:', await response.json());
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const message = errorData?.message || 'No se pudo reservar el pasaje';

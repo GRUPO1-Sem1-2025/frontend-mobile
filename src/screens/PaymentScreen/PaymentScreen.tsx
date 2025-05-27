@@ -9,7 +9,7 @@ import {
   Linking,
   TouchableOpacity,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getLocalities } from '../../services/locality';
@@ -30,6 +30,8 @@ type RouteParams = {
 
 export default function PaymentScreen() {
   const route = useRoute();
+  const navigation = useNavigation<any>();
+
   const {
     origin,
     destination,
@@ -45,6 +47,7 @@ export default function PaymentScreen() {
   const [originName, setOriginName] = useState('...');
   const [destinationName, setDestinationName] = useState('...');
   const [loadingLocs, setLoadingLocs] = useState(true);
+  const [remainingSeconds, setRemainingSeconds] = useState(600); // 10 minutos
 
   useEffect(() => {
     (async () => {
@@ -61,6 +64,31 @@ export default function PaymentScreen() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          Alert.alert(
+            'Tiempo caducado',
+            'Su reserva ha expirado. Debe volver a seleccionar los asientos y realizar la compra nuevamente.',
+            [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
+          );
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (sec: number) => {
+    const min = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${min}:${s}`;
+  };
 
   const formatDate = (iso?: string) => {
     if (!iso) return '-';
@@ -120,6 +148,13 @@ export default function PaymentScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.alertBox}>
+        <Text style={styles.alertTitle}>La compra ha sido reservada de forma exitosa.</Text>
+        <Text style={styles.alertMessage}>
+          Recuerde que tiene <Text style={styles.alertTime}>{formatTime(remainingSeconds)}</Text> para completar el proceso de compra, de lo contrario su reserva será cancelada de forma automática.
+        </Text>
+      </View>
+
       <Text style={styles.title}>Resumen de Compra</Text>
 
       <View style={styles.block}>
@@ -239,5 +274,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  alertBox: {
+    backgroundColor: '#fff8e1',
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 8,
+    borderLeftWidth: 5,
+    borderLeftColor: '#f9c94e',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2c3a',
+    marginBottom: 6,
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: '#1f2c3a',
+  },
+  alertTime: {
+    fontWeight: 'bold',
+    color: '#d84315',
   },
 });
