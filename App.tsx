@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { registerForPushNotificationsAsync } from './src/notifications/registerPush';
 import AppStack from './src/navigation/AppStack';
 import PaymentSuccessScreen from './src/screens/PaymentScreen/PaymentSuccessScreen';
@@ -13,6 +13,8 @@ import PaymentCancelScreen from './src/screens/PaymentScreen/PaymentCancelScreen
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+
   useEffect(() => {
     AsyncStorage.getItem('userToken').then(userId => {
       if (userId) {
@@ -34,8 +36,40 @@ export default function App() {
     },
   };
 
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const { url } = event;
+      const parsed = Linking.parse(url);
+      console.log('🔗 Link recibido:', parsed);
+
+      if (parsed.path === 'payment-success') {
+        navigationRef.reset({
+          index: 0,
+          routes: [{ name: 'PaymentSuccess' }],
+        });
+      }
+
+      if (parsed.path === 'payment-cancel') {
+        navigationRef.reset({
+          index: 0,
+          routes: [{ name: 'PaymentCancel' }],
+        });
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    Linking.getInitialURL().then(url => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [navigationRef]);
+
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="AppDrawer" component={AppStack} />
         <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
@@ -44,12 +78,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
