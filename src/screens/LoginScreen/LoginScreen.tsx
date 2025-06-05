@@ -1,9 +1,8 @@
 // src/screens/LoginScreen.tsx
+
 import React, { useState, useContext } from 'react';
 import {
-  View,
   TextInput,
-  Button,
   StyleSheet,
   ActivityIndicator,
   Text,
@@ -17,7 +16,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
 export default function LoginScreen() {
-  const { requestCode } = useContext(AuthContext);
+  const { requestCode, resetPassword } = useContext(AuthContext);
   const navigation = useNavigation<any>();
 
   const [email, setEmail] = useState('');
@@ -43,6 +42,30 @@ export default function LoginScreen() {
       ]);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Por favor ingresa tu correo electrónico.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      Alert.alert(
+        '¡Listo!',
+        'Te hemos enviado un correo para resetear tu contraseña.'
+      );
+    } catch (error) {
+      console.error('Error al resetear la contraseña:', error);
+      Alert.alert(
+        'Error',
+        (error as Error).message || 'Ocurrió un error al intentar resetear la contraseña.'
+      );
     } finally {
       setLoading(false);
     }
@@ -78,6 +101,10 @@ export default function LoginScreen() {
           onChangeText={setPassword}
         />
 
+        <TouchableOpacity onPress={handleForgotPassword} disabled={loading}>
+          <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
+
         {error && <Text style={styles.error}>{error}</Text>}
 
         {loading ? (
@@ -103,7 +130,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#c6eefc', // fondo suave
+    backgroundColor: '#c6eefc',
   },
   title: {
     fontSize: 24,
@@ -119,6 +146,14 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#ffffff',
     color: '#1f2c3a',
+    fontSize: 16,
+  },
+  forgotPassword: {
+    textAlign: 'center',
+    color: '#1f2c3a',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    marginTop: 8,
     fontSize: 16,
   },
   error: {

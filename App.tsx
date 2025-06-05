@@ -39,10 +39,21 @@ export default function App() {
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {
       const { url } = event;
+      console.log('🟡 [DEBUG] handleDeepLink -> URL:', url);
+
       const parsed = Linking.parse(url);
-      console.log('🔗 Link recibido:', parsed);
+      console.log('🔗 [DEBUG] Link parseado:', parsed);
+
+      if (!navigationRef.isReady()) {
+        console.warn('⚠️ [DEBUG] navigationRef aún no está listo.');
+        return;
+      }
+
+      const currentRoute = navigationRef.getCurrentRoute();
+      console.log('📍 [DEBUG] Ruta actual antes de reset:', currentRoute);
 
       if (parsed.path === 'payment-success') {
+        console.log('✅ [DEBUG] Navegando a PaymentSuccessScreen');
         navigationRef.reset({
           index: 0,
           routes: [{ name: 'PaymentSuccess' }],
@@ -50,6 +61,7 @@ export default function App() {
       }
 
       if (parsed.path === 'payment-cancel') {
+        console.log('✅ [DEBUG] Navegando a PaymentCancelScreen');
         navigationRef.reset({
           index: 0,
           routes: [{ name: 'PaymentCancel' }],
@@ -60,7 +72,12 @@ export default function App() {
     const subscription = Linking.addEventListener('url', handleDeepLink);
 
     Linking.getInitialURL().then(url => {
-      if (url) handleDeepLink({ url });
+      if (url) {
+        console.log('🟢 [DEBUG] getInitialURL:', url);
+        handleDeepLink({ url });
+      } else {
+        console.log('🔵 [DEBUG] No initial URL detectada');
+      }
     });
 
     return () => {
@@ -69,7 +86,11 @@ export default function App() {
   }, [navigationRef]);
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      onReady={() => console.log('🟢 [DEBUG] NavigationContainer listo')}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="AppDrawer" component={AppStack} />
         <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />

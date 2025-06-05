@@ -1,4 +1,5 @@
 // src/context/AuthContext.tsx
+
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +42,7 @@ export type AuthContextType = {
   ) => Promise<string>;
   requestCode: (email: string, password: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -49,6 +51,7 @@ export const AuthContext = createContext<AuthContextType>({
   register: async () => '',
   requestCode: async () => {},
   verifyCode: async () => {},
+  resetPassword: async () => {},
   logout: async () => {},
 });
 
@@ -98,7 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const resp = await fetch(`${BASE_URL}/usuarios/registrarse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, apellido, email, password, ci, fecNac, categoria, matricula }),
+      body: JSON.stringify({ nombre, apellido, email, password, ci, fecNac, categoria: ['GENERAL'], matricula }),
     });
 
     const json = await resp.json();
@@ -106,7 +109,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(json?.mensaje || 'No se pudo registrar.');
     }
 
-    // El backend solo devuelve mensaje, no token
     return json?.mensaje || 'Registro exitoso';
   };
 
@@ -143,13 +145,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setToken(data.token);
   };
 
+  const resetPassword = async (email: string) => {
+    const resetUrl = `${BASE_URL}/usuarios/resetearcontrasenia?para=${email}`;
+    const resp = await fetch(resetUrl, {
+      method: 'POST',
+    });
+
+    if (!resp.ok) {
+      let errorMessage = 'Error al solicitar el reseteo de contraseña.';
+      try {
+        const data = await resp.json();
+        if (data?.mensaje) {
+          errorMessage = data.mensaje;
+        }
+      } catch {
+        // Si no es JSON, mantener el mensaje por defecto
+      }
+      throw new Error(errorMessage);
+    }
+  };
+
   useEffect(() => {
     validateToken();
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ token, register, requestCode, verifyCode, logout }}
+      value={{ token, register, requestCode, verifyCode, resetPassword, logout }}
     >
       {children}
     </AuthContext.Provider>

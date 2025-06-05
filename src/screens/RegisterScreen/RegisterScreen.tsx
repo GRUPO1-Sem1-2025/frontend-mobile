@@ -12,7 +12,6 @@ import {
   ScrollView,
   Alert,
   Modal,
-  Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AuthContext } from '../../context/AuthContext';
@@ -30,10 +29,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fecNac, setFecNac] = useState<Date | null>(null);
-  const [categoria, setCategoria] = useState('GENERAL');
   const [matricula, setMatricula] = useState('');
   const [showDate, setShowDate] = useState(false);
-  const [showCategoria, setShowCategoria] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,16 +44,6 @@ export default function RegisterScreen() {
     if (digits.length > 4) formatted = formatted.slice(0, 5) + '.' + formatted.slice(5);
     if (digits.length > 7) formatted = formatted.slice(0, 9) + '-' + formatted.slice(9);
     return formatted;
-  };
-
-  const calcularEdad = (fecha: Date) => {
-    const hoy = new Date();
-    let edad = hoy.getFullYear() - fecha.getFullYear();
-    const m = hoy.getMonth() - fecha.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < fecha.getDate())) {
-      edad--;
-    }
-    return edad;
   };
 
   const handleRegister = async () => {
@@ -80,10 +67,7 @@ export default function RegisterScreen() {
       setError('Las contraseñas no coinciden');
       return;
     }
-    const categorias: string[] = [categoria];
-    const edad = calcularEdad(fecNac);
-    if (!categorias.includes('JUBILADO') && edad >= 60) categorias.push('JUBILADO');
-    if (!categorias.includes('GENERAL')) categorias.push('GENERAL');
+
     setLoading(true);
     setError(null);
     try {
@@ -94,8 +78,8 @@ export default function RegisterScreen() {
         password,
         ci,
         fecNac.toISOString().split('T')[0],
-        categorias,
-        categoria === 'ESTUDIANTE' ? matricula : undefined
+        [], // Sin categorías
+        undefined // No matricula porque no hay categorías
       );
       Alert.alert('Registro exitoso', mensaje, [
         { text: 'Continuar', onPress: () => navigation.navigate('VerifyCode', { email }) },
@@ -175,37 +159,6 @@ export default function RegisterScreen() {
               </View>
             </View>
           </Modal>
-
-          <TouchableOpacity style={styles.dateInput} onPress={() => setShowCategoria(true)}>
-            <View style={styles.dateRow}>
-              <Ionicons name="list-circle-outline" size={20} color="#1f2c3a" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#1f2c3a' }}>{categoria}</Text>
-            </View>
-          </TouchableOpacity>
-
-          <Modal visible={showCategoria} transparent animationType="slide">
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                {['GENERAL', 'ESTUDIANTE', 'JUBILADO'].map((cat) => (
-                  <Pressable key={cat} onPress={() => {
-                    setCategoria(cat);
-                    setShowCategoria(false);
-                  }} style={{ padding: 16 }}>
-                    <Text style={{ fontSize: 18, color: '#1f2c3a' }}>{cat}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </Modal>
-
-          {categoria === 'ESTUDIANTE' && (
-            <TextInput
-              placeholder="Matrícula de estudiante"
-              style={[styles.input, intentado && !matricula && styles.inputError]}
-              value={matricula}
-              onChangeText={setMatricula}
-            />
-          )}
 
           <View style={styles.inputContainer}>
             <TextInput
