@@ -1,4 +1,5 @@
 // src/screens/VerifyCodeScreen.tsx
+
 import React, { useState, useContext, useRef } from 'react';
 import {
   View,
@@ -21,13 +22,14 @@ import * as Animatable from 'react-native-animatable';
 type RouteParams = { email: string };
 
 export default function VerifyCodeScreen() {
-  const { verifyCode } = useContext(AuthContext);
+  const { verifyCode, resendCode } = useContext(AuthContext);
   const route = useRoute();
   const navigation = useNavigation();
   const { email } = route.params as RouteParams;
 
   const [code, setCode] = useState<string[]>(['', '', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<Animatable.View & View>(null);
   const inputs = useRef<Array<TextInput | null>>([]);
@@ -86,6 +88,18 @@ export default function VerifyCodeScreen() {
     }
   };
 
+  const handleResendCode = async () => {
+    setResending(true);
+    try {
+      await resendCode(email);
+      Alert.alert('¡Éxito!', 'El código fue reenviado correctamente.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo reenviar el código.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -136,6 +150,18 @@ export default function VerifyCodeScreen() {
             <Text style={styles.verifyButtonText}>Verificar código</Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          style={styles.resendButton}
+          onPress={handleResendCode}
+          disabled={resending}
+        >
+          {resending ? (
+            <ActivityIndicator color="#1f2c3a" />
+          ) : (
+            <Text style={styles.resendButtonText}>Reenviar código</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -187,5 +213,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  resendButton: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  resendButtonText: {
+    color: '#1f2c3a',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
 });

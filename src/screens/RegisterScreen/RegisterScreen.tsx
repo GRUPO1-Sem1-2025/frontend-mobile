@@ -148,14 +148,15 @@ export default function RegisterScreen() {
                 <DateTimePicker
                   value={fecNac || new Date()}
                   mode="date"
-                  display="spinner"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(event, selectedDate) => {
                     setShowDate(false);
                     if (selectedDate) setFecNac(selectedDate);
                   }}
                   maximumDate={new Date()}
-                  themeVariant="light"
+                  minimumDate={new Date(1900, 0, 1)} // Opcional: bloquea fechas muy antiguas
                 />
+
               </View>
             </View>
           </Modal>

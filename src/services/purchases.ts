@@ -5,12 +5,17 @@ const extra = Constants.expoConfig?.extra || {};
 const STRIPE_API_URL = extra.STRIPE_API_URL;
 const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
 
+console.log('STRIPE_API_URL:', STRIPE_API_URL);
+console.log('STRIPE_SECRET_KEY:', STRIPE_SECRET_KEY);
+
 interface PurchaseRequest {
   usuarioId: number;
   viajeId: number;
   numerosDeAsiento: number[];
   estadoCompra: 'RESERVADA';
 }
+
+console.log('BASE_URL:', BASE_URL);
 
 function decodeToken(token: string): { id: number } {
   try {
@@ -35,6 +40,7 @@ export async function reservarPasaje(
     estadoCompra: 'RESERVADA',
   };
 
+  console.log(body);
   const response = await fetch(`${BASE_URL}/usuarios/comprarPasaje`, {
     method: 'POST',
     headers: {
@@ -44,10 +50,15 @@ export async function reservarPasaje(
   });
 
   const json = await response.json();
+  console.log('Reservar pasaje response:', json);
 
-  if (!response.ok || !json?.idCompra) {
+  if (!response.ok) {
     const message = json?.message || 'No se pudo reservar el pasaje';
     throw new Error(message);
+  }
+
+  if (!json?.idCompra) {
+    throw new Error('No se recibió idCompra');
   }
 
   return { idCompra: json.idCompra };
@@ -61,7 +72,6 @@ export async function crearSesionStripe(
 ): Promise<string> {
   const params = new URLSearchParams();
 
-  // Agregar IDs de compra y extraData como query params en el success_url
   let successUrl = `http://tecnobus.uy:8090/payment-success.html?idCompraIda=${idCompraIda}&totalPrice=${totalUYU}`;
   if (idCompraVuelta) {
     successUrl += `&idCompraVuelta=${idCompraVuelta}`;
@@ -69,7 +79,7 @@ export async function crearSesionStripe(
 
   if (extraData) {
     Object.entries(extraData).forEach(([key, value]) => {
-      successUrl += `&${key}=${encodeURIComponent(value)}`;
+      successUrl += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
     });
   }
 
@@ -101,15 +111,19 @@ export async function crearSesionStripe(
 }
 
 export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
+  const body = { idCompra };
+
   const response = await fetch(`${BASE_URL}/usuarios/cambiarEstadoCompra`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idCompra }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const json = await response.json().catch(() => ({}));
-    const message = json?.message || 'Error al cambiar el estado de compra';
+    const message = json?.mensaje || 'No se pudo actualizar el estado de compra';
     throw new Error(message);
   }
 }

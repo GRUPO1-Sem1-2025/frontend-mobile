@@ -171,7 +171,7 @@ export default function HomeScreen() {
               <DateTimePicker
                 value={showDatePicker === 'return' ? returnDate : departDate}
                 mode="date"
-                display="spinner"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={handleDateChange}
                 minimumDate={showDatePicker === 'return' ? departDate : new Date()}
                 maximumDate={new Date('2100-01-01')}

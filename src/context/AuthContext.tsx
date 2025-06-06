@@ -4,6 +4,7 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+
 const jwtDecode: (token: string) => { exp: number } = require('jwt-decode');
 
 const extra = (Constants.expoConfig?.extra || {}) as {
@@ -53,6 +54,7 @@ export type AuthContextType = {
     new_pass1: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  resendCode: (email: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -63,6 +65,7 @@ export const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => {},
   changePassword: async () => {},
   logout: async () => {},
+  resendCode: async () => {},
 });
 
 interface AuthProviderProps {
@@ -148,7 +151,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     return {
-      login_directo: data?.login_directo ?? '0',
+      login_directo: data?.Login_directo ?? '0',
       mensaje: data?.mensaje ?? '',
     };
   };
@@ -221,6 +224,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const resendCode = async (email: string) => {
+    const response = await fetch(
+      `${BASE_URL}/usuarios/reenviarCodigo?email=${encodeURIComponent(email)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const message = errorData?.mensaje || 'No se pudo reenviar el código.';
+      throw new Error(message);
+    }
+  };
+
   useEffect(() => {
     validateToken();
   }, []);
@@ -235,6 +253,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         resetPassword,
         changePassword,
         logout,
+        resendCode,
       }}
     >
       {children}
