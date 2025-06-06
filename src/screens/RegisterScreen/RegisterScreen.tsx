@@ -155,6 +155,7 @@ export default function RegisterScreen() {
                   }}
                   maximumDate={new Date()}
                   minimumDate={new Date(1900, 0, 1)} // Opcional: bloquea fechas muy antiguas
+                  themeVariant="light"
                 />
 
               </View>
