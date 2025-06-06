@@ -40,18 +40,28 @@ export type AuthContextType = {
     categoria: string[],
     matricula?: string
   ) => Promise<string>;
-  requestCode: (email: string, password: string) => Promise<void>;
+  requestCode: (
+    email: string,
+    password: string
+  ) => Promise<{ login_directo: string; mensaje: string }>;
   verifyCode: (email: string, code: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  changePassword: (
+    email: string,
+    old_pass: string,
+    new_pass: string,
+    new_pass1: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
   token: null,
   register: async () => '',
-  requestCode: async () => {},
+  requestCode: async () => ({ login_directo: '0', mensaje: '' }),
   verifyCode: async () => {},
   resetPassword: async () => {},
+  changePassword: async () => {},
   logout: async () => {},
 });
 
@@ -101,7 +111,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const resp = await fetch(`${BASE_URL}/usuarios/registrarse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, apellido, email, password, ci, fecNac, categoria: ['GENERAL'], matricula }),
+      body: JSON.stringify({
+        nombre,
+        apellido,
+        email,
+        password,
+        ci,
+        fecNac,
+        categoria,
+        matricula,
+      }),
     });
 
     const json = await resp.json();
@@ -112,15 +131,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return json?.mensaje || 'Registro exitoso';
   };
 
-  const requestCode = async (email: string, password: string) => {
+  const requestCode = async (
+    email: string,
+    password: string
+  ): Promise<{ login_directo: string; mensaje: string }> => {
     const resp = await fetch(`${BASE_URL}/usuarios/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
+
+    const data = await resp.json();
+
     if (!resp.ok) {
-      throw new Error('E-mail o contraseña inválidos');
+      throw new Error(data?.mensaje || 'E-mail o contraseña inválidos');
     }
+
+    return {
+      login_directo: data?.login_directo ?? '0',
+      mensaje: data?.mensaje ?? '',
+    };
   };
 
   const verifyCode = async (email: string, code: string) => {
@@ -165,13 +195,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const changePassword = async (
+    email: string,
+    old_pass: string,
+    new_pass: string,
+    new_pass1: string
+  ) => {
+    const resp = await fetch(`${BASE_URL}/usuarios/cambiarContrasenia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, old_pass, new_pass, new_pass1 }),
+    });
+
+    if (!resp.ok) {
+      let errorMessage = 'Error al cambiar la contraseña.';
+      try {
+        const data = await resp.json();
+        if (data?.mensaje) {
+          errorMessage = data.mensaje;
+        }
+      } catch {
+        // Si no es JSON, mantener el mensaje por defecto
+      }
+      throw new Error(errorMessage);
+    }
+  };
+
   useEffect(() => {
     validateToken();
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ token, register, requestCode, verifyCode, resetPassword, logout }}
+      value={{
+        token,
+        register,
+        requestCode,
+        verifyCode,
+        resetPassword,
+        changePassword,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,13 +1,15 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LoginScreen      from '../screens/LoginScreen/LoginScreen';
-import RegisterScreen   from '../screens/RegisterScreen/RegisterScreen';
+import LoginScreen from '../screens/LoginScreen/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen/RegisterScreen';
 import VerifyCodeScreen from '../screens/LoginScreen/VerifyCodeScreen';
+import ResetPasswordScreen from '../screens/LoginScreen/ResetPasswordScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   VerifyCode: { email: string };
+  ResetPassword: { email: string; oldPassword: string };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -29,6 +31,11 @@ export default function AuthStack() {
         name="VerifyCode"
         component={VerifyCodeScreen}
         options={{ title: 'Verificar Código' }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ title: 'Restablecer Contraseña' }}
       />
     </Stack.Navigator>
   );

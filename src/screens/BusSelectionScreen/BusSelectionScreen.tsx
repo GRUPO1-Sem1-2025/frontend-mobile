@@ -147,10 +147,14 @@ export default function BusSelectionScreen() {
     if (!token) return Alert.alert('Error', 'Sesión expirada');
     try {
       setReserving(true);
-      await reservarPasaje(token, viajeId, selOut);
+      const reservaIda = await reservarPasaje(token, viajeId, selOut);
+const idCompraIda = reservaIda.idCompra;
+let idCompraVuelta = null;
       if (tripType === 'roundtrip' && returnViajeId) {
-        await reservarPasaje(token, returnViajeId, selRet);
+        const reservaVuelta = await reservarPasaje(token, returnViajeId, selRet);
+        idCompraVuelta = reservaVuelta.idCompra;
       }
+
       navigation.navigate('Payment', {
         tripType,
         outboundTrip,
@@ -161,6 +165,8 @@ export default function BusSelectionScreen() {
         returnDate,
         origin,
         destination,
+        idCompraIda,
+        idCompraVuelta,
       });
     } catch (e) {
       console.log('Error reservando pasaje:', e);

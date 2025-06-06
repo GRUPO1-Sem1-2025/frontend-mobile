@@ -54,12 +54,12 @@ function RootNavigator() {
       const currentRoute = navigationRef.getCurrentRoute();
       console.log('📍 [DEBUG] Ruta actual antes de navigate:', currentRoute);
 
-      if (parsed.path === 'payment-success') {
+      if (parsed.hostname === 'payment-success') {
         console.log('✅ [DEBUG] Navegando a PaymentSuccessScreen');
         navigationRef.navigate('PaymentSuccess');
       }
 
-      if (parsed.path === 'payment-cancel') {
+      if (parsed.hostname === 'payment-cancel') {
         console.log('✅ [DEBUG] Navegando a PaymentCancelScreen');
         navigationRef.navigate('PaymentCancel');
       }
