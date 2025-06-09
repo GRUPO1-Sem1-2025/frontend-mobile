@@ -120,9 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email,
         password,
         ci,
-        fecNac,
-        categoria,
-        matricula,
+        fecha_nac: fecNac
       }),
     });
 

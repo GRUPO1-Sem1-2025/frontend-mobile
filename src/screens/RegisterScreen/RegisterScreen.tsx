@@ -1,4 +1,5 @@
 // src/screens/RegisterScreen.tsx
+
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -29,7 +30,6 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fecNac, setFecNac] = useState<Date | null>(null);
-  const [matricula, setMatricula] = useState('');
   const [showDate, setShowDate] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -91,6 +91,13 @@ export default function RegisterScreen() {
     }
   };
 
+  const handleDateChange = (_: any, selectedDate?: Date) => {
+    setShowDate(false);
+    if (selectedDate) {
+      setFecNac(selectedDate);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -131,6 +138,7 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             keyboardType="email-address"
           />
+
           <TouchableOpacity
             style={[styles.dateInput, intentado && !fecNac && styles.inputError]}
             onPress={() => setShowDate(true)}
@@ -142,25 +150,36 @@ export default function RegisterScreen() {
               </Text>
             </View>
           </TouchableOpacity>
-          <Modal visible={showDate} transparent animationType="slide">
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <DateTimePicker
-                  value={fecNac || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedDate) => {
-                    setShowDate(false);
-                    if (selectedDate) setFecNac(selectedDate);
-                  }}
-                  maximumDate={new Date()}
-                  minimumDate={new Date(1900, 0, 1)} // Opcional: bloquea fechas muy antiguas
-                  themeVariant="light"
-                />
 
-              </View>
-            </View>
-          </Modal>
+          {/* DateTimePicker adaptado para iOS y Android */}
+          {showDate && (
+            Platform.OS === 'ios' ? (
+              <Modal visible transparent animationType="slide">
+                <View style={styles.modalContainer}>
+                  <View style={styles.modalContent}>
+                    <DateTimePicker
+                      value={fecNac || new Date()}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleDateChange}
+                      maximumDate={new Date()}
+                      minimumDate={new Date(1900, 0, 1)}
+                      themeVariant="light"
+                    />
+                  </View>
+                </View>
+              </Modal>
+            ) : (
+              <DateTimePicker
+                value={fecNac || new Date()}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+                minimumDate={new Date(1900, 0, 1)}
+              />
+            )
+          )}
 
           <View style={styles.inputContainer}>
             <TextInput
