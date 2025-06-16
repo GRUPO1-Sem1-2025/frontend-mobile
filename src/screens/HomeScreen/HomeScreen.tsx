@@ -102,6 +102,44 @@ export default function HomeScreen() {
     setShowDatePicker(null);
   };
 
+  const renderDatePicker = () => {
+    const currentVal = showDatePicker === 'return' ? returnDate : departDate;
+    const minDate = showDatePicker === 'return' ? departDate : new Date();
+
+    if (!showDatePicker) return null;
+
+    if (Platform.OS === 'ios') {
+      return (
+        <Modal visible transparent animationType="slide">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <DateTimePicker
+                value={currentVal}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                maximumDate={new Date('2100-01-01')}
+                minimumDate={minDate}
+                themeVariant="light"
+              />
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    return (
+      <DateTimePicker
+        value={currentVal}
+        mode="date"
+        display="default"
+        onChange={handleDateChange}
+        maximumDate={new Date('2100-01-01')}
+        minimumDate={minDate}
+      />
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}
@@ -165,21 +203,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        <Modal visible={showDatePicker !== null} transparent animationType="slide">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <DateTimePicker
-                value={showDatePicker === 'return' ? returnDate : departDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-                minimumDate={showDatePicker === 'return' ? departDate : new Date()}
-                maximumDate={new Date('2100-01-01')}
-                themeVariant="light"
-              />
-            </View>
-          </View>
-        </Modal>
+        {renderDatePicker()}
 
         <View style={styles.searchBtn}>
           <TouchableOpacity
