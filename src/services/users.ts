@@ -13,7 +13,8 @@ export async function getUserByEmail(token: string) {
   const { email, id } = decodeToken(token);
   const response = await fetch(`${BASE_URL}/usuarios/emails/?email=${encodeURIComponent(email)}`);
   if (!response.ok) throw new Error('Error al obtener usuario');
-  return await response.json();
+  const data = await response.json();
+  return data.OK;
 }
 
 export async function updateUserProfile(token: string, data: {

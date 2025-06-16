@@ -1,6 +1,4 @@
-// src/screens/RegisterScreen.tsx
-
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -35,7 +33,19 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [intentado, setIntentado] = useState(false);
+  const [erroresCampos, setErroresCampos] = useState<{
+    nombre?: string;
+    apellido?: string;
+    email?: string;
+    password?: string;
+    confirm?: string;
+    ci?: string;
+    fecNac?: string;
+  }>({});
+
+  const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
 
   const formatearCI = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 8);
@@ -46,41 +56,70 @@ export default function RegisterScreen() {
     return formatted;
   };
 
-  const handleRegister = async () => {
-    setIntentado(true);
+  const validarCampos = () => {
     const ci = ciRaw.replace(/\D/g, '');
-    const camposObligatorios = [nombre, apellido, email, password, ci];
-    const hayCamposVacios = camposObligatorios.some(c => !c.trim());
-    if (hayCamposVacios || !fecNac) {
-      setError('Debes completar todos los campos obligatorios');
-      return;
+    const errores: typeof erroresCampos = {};
+
+    if (!nombre.trim()) errores.nombre = 'Campo obligatorio';
+    else if (nombre.trim().length < 3) errores.nombre = 'Mínimo 3 letras';
+    else if (!soloLetras.test(nombre)) errores.nombre = 'Solo letras';
+
+    if (!apellido.trim()) errores.apellido = 'Campo obligatorio';
+    else if (apellido.trim().length < 3) errores.apellido = 'Mínimo 3 letras';
+    else if (!soloLetras.test(apellido)) errores.apellido = 'Solo letras';
+
+    if (!email.trim()) errores.email = 'Campo obligatorio';
+    else if (!emailValido.test(email)) errores.email = 'Email no válido';
+
+    if (!password) errores.password = 'Campo obligatorio';
+    else if (!passwordRegex.test(password)) errores.password = 'Debe tener letras y números, mínimo 6 caracteres';
+
+    if (!confirm) errores.confirm = 'Campo obligatorio';
+    else if (password !== confirm) errores.confirm = 'No coincide con la contraseña';
+
+    if (!ci) errores.ci = 'Campo obligatorio';
+    else if (ci.length !== 8) errores.ci = 'Debe tener 8 dígitos';
+
+    if (!fecNac) errores.fecNac = 'Selecciona una fecha';
+    else {
+      const hoy = new Date();
+      const fechaNacimiento = new Date(fecNac);
+      const edad = hoy.getFullYear() - fechaNacimiento.getFullYear() - (hoy < new Date(fechaNacimiento.setFullYear(hoy.getFullYear())) ? 1 : 0);
+      if (edad < 10) errores.fecNac = 'Debes tener al menos 10 años';
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('El correo electrónico no es válido');
-      return;
-    }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Las contraseñas no coinciden');
-      return;
-    }
+
+    setErroresCampos(errores);
+    return errores;
+  };
+
+  useEffect(() => {
+    validarCampos();
+  }, [nombre, apellido, email, password, confirm, ciRaw, fecNac]);
+
+  const esFormularioValido = () => {
+    return (
+      nombre &&
+      apellido &&
+      email &&
+      password &&
+      confirm &&
+      ciRaw &&
+      fecNac &&
+      Object.keys(erroresCampos).length === 0
+    );
+  };
+
+  const handleRegister = async () => {
+    const errores = validarCampos();
+    if (Object.keys(errores).length > 0 || !fecNac) return;
+
+    const fechaISO = fecNac.toISOString().split('T')[0];
+    const ci = ciRaw.replace(/\D/g, '');
 
     setLoading(true);
     setError(null);
     try {
-      const mensaje = await register(
-        nombre,
-        apellido,
-        email,
-        password,
-        ci,
-        fecNac.toISOString().split('T')[0],
-        [], // Sin categorías
-        undefined // No matricula porque no hay categorías
-      );
+      const mensaje = await register(nombre, apellido, email, password, ci, fechaISO, [], undefined);
       Alert.alert('Registro exitoso', mensaje, [
         { text: 'Continuar', onPress: () => navigation.navigate('VerifyCode', { email }) },
       ]);
@@ -93,12 +132,9 @@ export default function RegisterScreen() {
 
   const handleDateChange = (_: any, selectedDate?: Date) => {
     setShowDate(false);
-    if (selectedDate) {
-      setFecNac(selectedDate);
-    }
+    if (selectedDate) setFecNac(selectedDate);
   };
-
-  return (
+    return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -111,36 +147,44 @@ export default function RegisterScreen() {
       >
         <View style={styles.container}>
           <Text style={styles.title}>Registro</Text>
+
           <TextInput
             placeholder="Nombre"
-            style={[styles.input, intentado && !nombre && styles.inputError]}
+            style={[styles.input, erroresCampos.nombre && styles.inputError]}
             value={nombre}
             onChangeText={setNombre}
           />
+          {erroresCampos.nombre && <Text style={styles.error}>{erroresCampos.nombre}</Text>}
+
           <TextInput
             placeholder="Apellido"
-            style={[styles.input, intentado && !apellido && styles.inputError]}
+            style={[styles.input, erroresCampos.apellido && styles.inputError]}
             value={apellido}
             onChangeText={setApellido}
           />
+          {erroresCampos.apellido && <Text style={styles.error}>{erroresCampos.apellido}</Text>}
+
           <TextInput
             placeholder="Cédula de Identidad"
-            style={[styles.input, intentado && !ciRaw && styles.inputError]}
+            style={[styles.input, erroresCampos.ci && styles.inputError]}
             value={formatearCI(ciRaw)}
             onChangeText={setCiRaw}
             keyboardType="numeric"
           />
+          {erroresCampos.ci && <Text style={styles.error}>{erroresCampos.ci}</Text>}
+
           <TextInput
             placeholder="Correo electrónico"
-            style={[styles.input, intentado && !email && styles.inputError]}
+            style={[styles.input, erroresCampos.email && styles.inputError]}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
           />
+          {erroresCampos.email && <Text style={styles.error}>{erroresCampos.email}</Text>}
 
           <TouchableOpacity
-            style={[styles.dateInput, intentado && !fecNac && styles.inputError]}
+            style={[styles.dateInput, erroresCampos.fecNac && styles.inputError]}
             onPress={() => setShowDate(true)}
           >
             <View style={styles.dateRow}>
@@ -150,8 +194,8 @@ export default function RegisterScreen() {
               </Text>
             </View>
           </TouchableOpacity>
+          {erroresCampos.fecNac && <Text style={styles.error}>{erroresCampos.fecNac}</Text>}
 
-          {/* DateTimePicker adaptado para iOS y Android */}
           {showDate && (
             Platform.OS === 'ios' ? (
               <Modal visible transparent animationType="slide">
@@ -184,7 +228,7 @@ export default function RegisterScreen() {
           <View style={styles.inputContainer}>
             <TextInput
               placeholder="Contraseña"
-              style={[styles.inputField, intentado && !password && styles.inputError]}
+              style={[styles.inputField, erroresCampos.password && styles.inputError]}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
@@ -193,10 +237,12 @@ export default function RegisterScreen() {
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
             </TouchableOpacity>
           </View>
+          {erroresCampos.password && <Text style={styles.error}>{erroresCampos.password}</Text>}
+
           <View style={styles.inputContainer}>
             <TextInput
               placeholder="Confirmar contraseña"
-              style={styles.inputField}
+              style={[styles.inputField, erroresCampos.confirm && styles.inputError]}
               secureTextEntry={!showConfirm}
               value={confirm}
               onChangeText={setConfirm}
@@ -205,11 +251,18 @@ export default function RegisterScreen() {
               <Ionicons name={showConfirm ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
             </TouchableOpacity>
           </View>
+          {erroresCampos.confirm && <Text style={styles.error}>{erroresCampos.confirm}</Text>}
+
           {error && <Text style={styles.error}>{error}</Text>}
+
           {loading ? (
             <ActivityIndicator color="#1f2c3a" />
           ) : (
-            <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+            <TouchableOpacity
+              style={[styles.registerButton, !esFormularioValido() && styles.buttonDisabled]}
+              onPress={handleRegister}
+              disabled={!esFormularioValido()}
+            >
               <Text style={styles.registerButtonText}>Registrarme</Text>
             </TouchableOpacity>
           )}
@@ -239,7 +292,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#91d5f4',
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     padding: 12,
     backgroundColor: '#ffffff',
     color: '#1f2c3a',
@@ -253,7 +306,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#91d5f4',
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: '#ffffff',
   },
   dateRow: {
@@ -263,7 +316,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.3)'
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -277,7 +330,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#91d5f4',
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: '#ffffff',
   },
   inputField: {
@@ -290,14 +343,17 @@ const styles = StyleSheet.create({
   },
   error: {
     color: 'red',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 8,
+    fontSize: 14,
   },
   registerButton: {
     backgroundColor: '#f9c94e',
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   registerButtonText: {
     color: '#1f2c3a',
@@ -306,3 +362,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+

@@ -23,8 +23,8 @@ function formatCI(ci?: string | null): string {
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [user, setUser] = useState<any>(null);
+
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [email, setEmail] = useState('');
@@ -36,7 +36,11 @@ export default function ProfileScreen() {
     email: false,
   });
 
-  const [errors, setErrors] = useState({ nombre: '', apellido: '', email: '' });
+  const [errors, setErrors] = useState({
+    nombre: '',
+    apellido: '',
+    email: '',
+  });
 
   useEffect(() => {
     (async () => {
@@ -46,11 +50,7 @@ export default function ProfileScreen() {
 
         const data = await getUserByEmail(token);
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const fullUser = {
-          ...data,
-          id: payload.id,
-          token,
-        };
+        const fullUser = { ...data, id: payload.id, token };
 
         setUser(fullUser);
         setNombre(fullUser.nombre || '');
@@ -66,23 +66,26 @@ export default function ProfileScreen() {
   }, []);
 
   useEffect(() => {
+  const regex = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]{3,}$/;
     setErrors(prev => ({
       ...prev,
-      nombre: /^[a-zA-Z\s]*$/.test(nombre) ? '' : 'Solo letras',
+      nombre: regex.test(nombre) ? '' : 'Mínimo 3 letras, solo texto',
     }));
   }, [nombre]);
 
   useEffect(() => {
+    const regex = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]{3,}$/;
     setErrors(prev => ({
       ...prev,
-      apellido: /^[a-zA-Z\s]*$/.test(apellido) ? '' : 'Solo letras',
+      apellido: regex.test(apellido) ? '' : 'Mínimo 3 letras, solo texto',
     }));
   }, [apellido]);
 
   useEffect(() => {
+    const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setErrors(prev => ({
       ...prev,
-      email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : 'Email inválido',
+      email: emailValido.test(email) ? '' : 'Email inválido',
     }));
   }, [email]);
 
@@ -205,14 +208,14 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Botón Guardar */}
+      {/* Guardar */}
       <TouchableOpacity
         style={[
           styles.primaryButton,
-          (!hasChanges() || Object.values(errors).some(e => e !== '') || saving) && styles.disabledButton,
+          (!hasChanges() || Object.values(errors).some(e => e) || saving) && styles.disabledButton,
         ]}
         onPress={handleSave}
-        disabled={!hasChanges() || Object.values(errors).some(e => e !== '') || saving}
+        disabled={!hasChanges() || Object.values(errors).some(e => e) || saving}
       >
         <Text style={styles.primaryButtonText}>
           {saving ? 'Guardando...' : 'Guardar'}
@@ -248,6 +251,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#1f2c3a',
+    marginTop: 12,
   },
   row: {
     flexDirection: 'row',

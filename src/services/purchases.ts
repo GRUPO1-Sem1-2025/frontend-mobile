@@ -72,18 +72,23 @@ export async function crearSesionStripe(
 ): Promise<string> {
   const params = new URLSearchParams();
 
-  let successUrl = `http://tecnobus.uy:8090/payment-success.html?idCompraIda=${idCompraIda}&totalPrice=${totalUYU}`;
+  const baseSuccessUrl = new URL('http://tecnobus.uy:8090/payment-success.html');
+  baseSuccessUrl.searchParams.append('idCompraIda', idCompraIda.toString());
+  baseSuccessUrl.searchParams.append('totalPrice', totalUYU.toString());
+
   if (idCompraVuelta) {
-    successUrl += `&idCompraVuelta=${idCompraVuelta}`;
+    baseSuccessUrl.searchParams.append('idCompraVuelta', idCompraVuelta.toString());
   }
 
   if (extraData) {
-    Object.entries(extraData).forEach(([key, value]) => {
-      successUrl += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-    });
+    for (const [key, value] of Object.entries(extraData)) {
+      if (value) {
+        baseSuccessUrl.searchParams.append(key, value);
+      }
+    }
   }
 
-  params.append('success_url', successUrl);
+  params.append('success_url', baseSuccessUrl.toString());
   params.append('cancel_url', 'http://tecnobus.uy:8090/payment-cancel.html');
   params.append('mode', 'payment');
   params.append('line_items[0][price_data][currency]', 'uyu');

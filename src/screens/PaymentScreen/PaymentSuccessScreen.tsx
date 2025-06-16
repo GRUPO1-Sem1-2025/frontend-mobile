@@ -12,41 +12,56 @@ import * as Sharing from 'expo-sharing';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra } from '../../services/purchases';
 
+function parseQueryParams(url: string): Record<string, string> {
+  try {
+    const query = url.includes('?') ? url.split('?')[1] : url;
+    const params = new URLSearchParams(query);
+    const result: Record<string, string> = {};
+    for (const [key, value] of params.entries()) {
+      result[key] = decodeURIComponent(value);
+    }
+    return result;
+  } catch (e) {
+    console.warn('Error al parsear la URL:', e);
+    return {};
+  }
+}
+
 export default function PaymentSuccessScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
   const params = route.params as any;
   const url = params?.url || '';
 
-  useEffect(() => {
-    const parsed = new URLSearchParams(url.split('?')[1]);
-    const idCompraIda = Number(parsed.get('idCompraIda'));
-    const idCompraVuelta = parsed.get('idCompraVuelta')
-      ? Number(parsed.get('idCompraVuelta'))
-      : null;
+  const parsed = parseQueryParams(url);
 
-    if (idCompraIda) cambiarEstadoCompra(idCompraIda).catch(console.error);
-    if (idCompraVuelta) cambiarEstadoCompra(idCompraVuelta).catch(console.error);
-  }, [url]);
+  const {
+    idCompraIda,
+    idCompraVuelta,
+    origin,
+    destination,
+    departDate,
+    returnDate,
+    totalPrice,
+    outboundHoraInicio,
+    outboundHoraFin,
+    outboundBusId,
+    outboundSeats,
+    returnHoraInicio,
+    returnHoraFin,
+    returnBusId,
+    returnSeats,
+  } = parsed;
+
+  useEffect(() => {
+    const idaId = Number(idCompraIda);
+    const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
+
+    if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
+    if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
+  }, [idCompraIda, idCompraVuelta]);
 
   const handleGeneratePDF = async () => {
-    const parsed = new URLSearchParams(url.split('?')[1]);
-    const origin = parsed.get('origin');
-    const destination = parsed.get('destination');
-    const departDate = parsed.get('departDate');
-    const returnDate = parsed.get('returnDate');
-    const totalPrice = parsed.get('totalPrice');
-
-    const outboundHoraInicio = parsed.get('outboundHoraInicio');
-    const outboundHoraFin = parsed.get('outboundHoraFin');
-    const outboundBusId = parsed.get('outboundBusId');
-    const outboundSeats = parsed.get('outboundSeats');
-
-    const returnHoraInicio = parsed.get('returnHoraInicio');
-    const returnHoraFin = parsed.get('returnHoraFin');
-    const returnBusId = parsed.get('returnBusId');
-    const returnSeats = parsed.get('returnSeats');
-
     const html = `
       <html>
         <body style="font-family: sans-serif; padding: 20px;">
@@ -66,7 +81,7 @@ export default function PaymentSuccessScreen() {
               : ''
           }
           <hr />
-          <p><strong>Total a Pagar:</strong> $${totalPrice}</p>
+          <p><strong>Total pago:</strong> $${totalPrice}</p>
         </body>
       </html>
     `;
@@ -81,21 +96,6 @@ export default function PaymentSuccessScreen() {
       routes: [{ name: 'AppDrawer' }],
     });
   };
-
-  const parsed = new URLSearchParams(url.split('?')[1]);
-  const origin = parsed.get('origin');
-  const destination = parsed.get('destination');
-  const departDate = parsed.get('departDate');
-  const returnDate = parsed.get('returnDate');
-  const totalPrice = parsed.get('totalPrice');
-  const outboundHoraInicio = parsed.get('outboundHoraInicio');
-  const outboundHoraFin = parsed.get('outboundHoraFin');
-  const outboundBusId = parsed.get('outboundBusId');
-  const outboundSeats = parsed.get('outboundSeats');
-  const returnHoraInicio = parsed.get('returnHoraInicio');
-  const returnHoraFin = parsed.get('returnHoraFin');
-  const returnBusId = parsed.get('returnBusId');
-  const returnSeats = parsed.get('returnSeats');
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

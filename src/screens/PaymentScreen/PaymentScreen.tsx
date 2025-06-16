@@ -101,16 +101,21 @@ export default function PaymentScreen() {
 
   const handleStripeCheckout = async () => {
     try {
-      const extraData = {
-        origin: originName,
-        destination: destinationName,
-        departDate,
-        returnDate: returnDate || '',
-        outboundSeats: outboundSeats.join(','),
-        returnSeats: returnSeats?.join(',') || '',
-        busIda: String(outboundTrip.busId),
-        busVuelta: returnTrip ? String(returnTrip.busId) : '',
-      };
+const extraData = {
+  origin: originName,
+  destination: destinationName,
+  departDate,
+  returnDate: returnDate || '',
+  outboundSeats: outboundSeats.join(','),
+  returnSeats: returnSeats?.join(',') || '',
+  outboundHoraInicio: outboundTrip.horaInicio,
+  outboundHoraFin: outboundTrip.horaFin,
+  returnHoraInicio: returnTrip?.horaInicio || '',
+  returnHoraFin: returnTrip?.horaFin || '',
+  outboundBusId: String(outboundTrip.busId),
+  returnBusId: returnTrip ? String(returnTrip.busId) : '',
+  totalPrice: String(totalPrice),
+};
 
       const url = await crearSesionStripe(totalPrice, idCompraIda, idCompraVuelta, extraData);
       Linking.openURL(url);
