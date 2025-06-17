@@ -33,6 +33,9 @@ export default function PaymentSuccessScreen() {
   const params = route.params as any;
   const url = params?.url || '';
 
+console.log('[DEBUG] route.params:', route.params);
+console.log('[DEBUG] url:', url);
+
   const parsed = parseQueryParams(url);
 
   const {

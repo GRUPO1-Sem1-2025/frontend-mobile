@@ -1,5 +1,3 @@
-// src/screens/VerifyCodeScreen.tsx
-
 import React, { useState, useContext, useRef } from 'react';
 import {
   View,
@@ -18,6 +16,7 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import * as Animatable from 'react-native-animatable';
+import * as Clipboard from 'expo-clipboard';
 
 type RouteParams = { email: string };
 
@@ -34,12 +33,33 @@ export default function VerifyCodeScreen() {
   const errorRef = useRef<Animatable.View & View>(null);
   const inputs = useRef<Array<TextInput | null>>([]);
 
-  const handleChange = (text: string, index: number) => {
-    if (/^[0-9]?$/.test(text)) {
+  const handleChange = async (text: string, index: number) => {
+    // Si se pega más de un carácter (posible pegado)
+    if (text.length > 1) {
+      const cleaned = text.replace(/\D/g, '');
+      if (cleaned.length === 5) {
+        const newCode = cleaned.split('');
+        setCode(newCode);
+        inputs.current[4]?.blur();
+
+        setTimeout(() => {
+          handleVerify(cleaned); // pasa directamente el código
+        }, 300);
+      } else {
+        setCode(['', '', '', '', '']);
+        setError('Código inválido. Debe contener 5 números.');
+        errorRef.current?.shake?.();
+        inputs.current[0]?.focus();
+      }
+      return;
+    }
+
+    // Si es un solo dígito válido
+    if (/^[0-9]$/.test(text)) {
       const newCode = [...code];
       newCode[index] = text;
       setCode(newCode);
-      if (text && index < 4) inputs.current[index + 1]?.focus();
+      if (index < 4) inputs.current[index + 1]?.focus();
     }
   };
 
@@ -55,10 +75,10 @@ export default function VerifyCodeScreen() {
     }
   };
 
-  const handleVerify = async () => {
-    const finalCode = code.join('');
-    if (finalCode.length !== 5) {
-      setError('El código debe tener 5 dígitos');
+  const handleVerify = async (codigoManual?: string) => {
+    const finalCode = codigoManual ?? code.join('');
+    if (finalCode.length !== 5 || !/^\d{5}$/.test(finalCode)) {
+      setError('El código debe tener 5 dígitos numéricos');
       errorRef.current?.shake?.();
       return;
     }
@@ -126,7 +146,7 @@ export default function VerifyCodeScreen() {
                 onChangeText={(text) => handleChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
                 keyboardType="numeric"
-                maxLength={1}
+                maxLength={5} // detecta pegado
                 returnKeyType={index === 4 ? 'done' : 'next'}
                 onSubmitEditing={() => {
                   if (index === 4) handleVerify();
@@ -146,7 +166,7 @@ export default function VerifyCodeScreen() {
         {loading ? (
           <ActivityIndicator color="#1f2c3a" />
         ) : (
-          <TouchableOpacity style={styles.verifyButton} onPress={handleVerify}>
+          <TouchableOpacity style={styles.verifyButton} onPress={() => handleVerify()}>
             <Text style={styles.verifyButtonText}>Verificar código</Text>
           </TouchableOpacity>
         )}

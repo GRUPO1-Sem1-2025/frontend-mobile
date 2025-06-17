@@ -14,6 +14,7 @@ export async function getUserByEmail(token: string) {
   const response = await fetch(`${BASE_URL}/usuarios/emails/?email=${encodeURIComponent(email)}`);
   if (!response.ok) throw new Error('Error al obtener usuario');
   const data = await response.json();
+  console.log('getUserByEmail', data.OK);
   return data.OK;
 }
 

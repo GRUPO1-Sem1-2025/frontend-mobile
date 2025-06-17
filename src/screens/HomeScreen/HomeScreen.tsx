@@ -132,7 +132,7 @@ export default function HomeScreen() {
       <DateTimePicker
         value={currentVal}
         mode="date"
-        display="default"
+        display={Platform.OS === 'android' ? 'calendar' : 'spinner'}
         onChange={handleDateChange}
         maximumDate={new Date('2100-01-01')}
         minimumDate={minDate}

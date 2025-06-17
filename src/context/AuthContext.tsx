@@ -177,7 +177,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const resetPassword = async (email: string) => {
-    const resetUrl = `${BASE_URL}/usuarios/resetearcontrasenia?para=${email}`;
+    const resetUrl = `${BASE_URL}/usuarios/resetearcontrasenia?para=${encodeURIComponent(email)}`;
     const resp = await fetch(resetUrl, {
       method: 'POST',
     });
