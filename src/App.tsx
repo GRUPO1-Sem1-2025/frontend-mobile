@@ -41,26 +41,20 @@ function RootNavigator() {
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {
       const { url } = event;
-      console.log('🟡 [DEBUG] handleDeepLink -> URL:', url);
 
       const parsed = Linking.parse(url);
-      console.log('🔗 [DEBUG] Link parseado:', parsed);
 
       if (!navigationRef.isReady()) {
-        console.warn('⚠️ [DEBUG] navigationRef aún no está listo.');
         return;
       }
 
       const currentRoute = navigationRef.getCurrentRoute();
-      console.log('📍 [DEBUG] Ruta actual antes de navigate:', currentRoute);
 
       if (parsed.hostname === 'payment-success') {
-        console.log('✅ [DEBUG] Navegando a PaymentSuccessScreen');
         navigationRef.navigate('PaymentSuccess');
       }
 
       if (parsed.hostname === 'payment-cancel') {
-        console.log('✅ [DEBUG] Navegando a PaymentCancelScreen');
         navigationRef.navigate('PaymentCancel');
       }
     };
@@ -69,10 +63,8 @@ function RootNavigator() {
 
     Linking.getInitialURL().then(url => {
       if (url) {
-        console.log('🟢 [DEBUG] getInitialURL:', url);
         handleDeepLink({ url });
       } else {
-        console.log('🔵 [DEBUG] No initial URL detectada');
       }
     });
 
@@ -99,7 +91,6 @@ function RootNavigator() {
 }
 
 export default function App() {
-  console.log('🟢 [DEBUG] src/App.tsx cargado');
   return (
     <AuthProvider>
       <RootNavigator />

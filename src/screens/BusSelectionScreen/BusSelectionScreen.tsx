@@ -169,7 +169,7 @@ let idCompraVuelta = null;
         idCompraVuelta,
       });
     } catch (e) {
-      console.log('Error reservando pasaje:', e);
+      console.log('[DEBUG] Error reservando pasaje:', e);
       Alert.alert('Error', (e as Error).message);
     } finally {
       setReserving(false);

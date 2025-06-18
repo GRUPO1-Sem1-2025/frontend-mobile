@@ -5,17 +5,12 @@ const extra = Constants.expoConfig?.extra || {};
 const STRIPE_API_URL = extra.STRIPE_API_URL;
 const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
 
-console.log('STRIPE_API_URL:', STRIPE_API_URL);
-console.log('STRIPE_SECRET_KEY:', STRIPE_SECRET_KEY);
-
 interface PurchaseRequest {
   usuarioId: number;
   viajeId: number;
   numerosDeAsiento: number[];
   estadoCompra: 'RESERVADA';
 }
-
-console.log('BASE_URL:', BASE_URL);
 
 function decodeToken(token: string): { id: number } {
   try {
@@ -50,14 +45,16 @@ export async function reservarPasaje(
   });
 
   const json = await response.json();
-  console.log('Reservar pasaje response:', json);
+  console.log('[DEBUG] Reservar pasaje response:', json);
 
   if (!response.ok) {
+    console.error('[DEBUG] Error reservando pasaje:', json);
     const message = json?.message || 'No se pudo reservar el pasaje';
     throw new Error(message);
   }
 
   if (!json?.idCompra) {
+    console.error('[DEBUG] Error reservando pasaje: No se recibió idCompra');
     throw new Error('No se recibió idCompra');
   }
 
@@ -80,13 +77,13 @@ export async function crearSesionStripe(
     baseSuccessUrl.searchParams.append('idCompraVuelta', idCompraVuelta.toString());
   }
 
-  if (extraData) {
-    for (const [key, value] of Object.entries(extraData)) {
-      if (value) {
-        baseSuccessUrl.searchParams.append(key, value);
-      }
+if (extraData) {
+  for (const [key, value] of Object.entries(extraData)) {
+    if (value && !baseSuccessUrl.searchParams.has(key)) {
+      baseSuccessUrl.searchParams.append(key, value);
     }
   }
+}
 
   params.append('success_url', baseSuccessUrl.toString());
   params.append('cancel_url', 'http://tecnobus.uy:8090/payment-cancel.html');
@@ -108,6 +105,8 @@ export async function crearSesionStripe(
   const data = await response.json();
 
   if (!response.ok || !data.url) {
+    console.error('[DEBUG] Error creando sesión Stripe:', data);
+    console.error('[DEBUG] Response status:', response.status);
     const message = data?.error?.message || 'No se pudo iniciar el pago';
     throw new Error(message);
   }
@@ -116,7 +115,6 @@ export async function crearSesionStripe(
 }
 
 export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
-  console.log('[DEBUG] Enviando ID de compra directamente:', idCompra);
 
   const response = await fetch(`${BASE_URL}/usuarios/cambiarEstadoCompra`, {
     method: 'POST',
@@ -127,7 +125,7 @@ export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
   });
 
   const text = await response.text();
-  console.log('[DEBUG] Respuesta:', response.status, text);
+  console.log('[DEBUG] Respuesta /cambiarEstadoCompra:', response.status, text);
 
   if (!response.ok) {
     let json;
@@ -136,6 +134,7 @@ export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
     } catch {
       json = {};
     }
+    console.error('[DEBUG] Error cambiando estado de compra /cambiarEstadoCompra:', json);
     const message = json?.mensaje || 'No se pudo actualizar el estado de compra';
     throw new Error(message);
   }

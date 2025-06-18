@@ -35,7 +35,7 @@ export default function LoginScreen() {
 
     try {
       const result = await requestCode(email, password);
-      console.log('Resultado del login:', result);
+      console.log('[DEBUG] Resultado del login:', result);
       if (result.login_directo === '1') {
         Alert.alert('¡Login exitoso!', result.mensaje, [
           { text: 'OK', onPress: () => navigation.navigate('VerifyCode', { email }) },

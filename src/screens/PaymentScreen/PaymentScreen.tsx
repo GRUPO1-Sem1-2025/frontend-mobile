@@ -52,6 +52,7 @@ export default function PaymentScreen() {
   const [remainingSeconds, setRemainingSeconds] = useState(600); // 10 minutos
 
   useEffect(() => {
+    console.log('[DEBUG] route.params:', route.params);
     (async () => {
       try {
         const locs = await getLocalities();
@@ -116,6 +117,7 @@ const extraData = {
   returnBusId: returnTrip ? String(returnTrip.busId) : '',
   totalPrice: String(totalPrice),
 };
+
 
       const url = await crearSesionStripe(totalPrice, idCompraIda, idCompraVuelta, extraData);
       Linking.openURL(url);

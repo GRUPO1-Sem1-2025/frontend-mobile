@@ -51,6 +51,8 @@ export async function getAvailableTrips(
   });
 
   if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    console.log(`[DEBUG] Error al buscar viajes: ${JSON.stringify(errorData)}`);
     throw new Error(`Error al buscar viajes: código ${resp.status}`);
   }
 

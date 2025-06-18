@@ -14,7 +14,6 @@ export async function getUserByEmail(token: string) {
   const response = await fetch(`${BASE_URL}/usuarios/emails/?email=${encodeURIComponent(email)}`);
   if (!response.ok) throw new Error('Error al obtener usuario');
   const data = await response.json();
-  console.log('getUserByEmail', data.OK);
   return data.OK;
 }
 
@@ -30,7 +29,7 @@ export async function updateUserProfile(token: string, data: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-console.log('BODY', JSON.stringify(data));
+  console.log('[DEBUG] BODY /usuarios/modificarPerfil', JSON.stringify(data));
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error?.message || 'Error al guardar perfil');

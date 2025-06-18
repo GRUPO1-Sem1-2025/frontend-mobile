@@ -73,6 +73,7 @@ export async function calificarViaje(
 
     return await handleResponse(response, 'No se pudo calificar el viaje');
   } catch (error) {
+    console.error('[DEBUG] Error al calificar viaje:', error);
     throw new Error(`Error al calificar el viaje: ${(error as Error).message}`);
   }
 }
@@ -89,6 +90,7 @@ export async function getCompraViaje(
     );
     return await handleResponse(response, 'No se pudo obtener el detalle del viaje');
   } catch (error) {
+    console.error('[DEBUG] Error al obtener detalle de compra:', error);
     throw new Error(`Error al obtener el detalle del viaje: ${(error as Error).message}`);
   }
 }
@@ -107,13 +109,14 @@ export async function getCalificacionViaje(idViaje: number, token: string) {
       }
     );
     const data = await handleResponse(response, 'No se pudo obtener la calificación');
-    console.log('Calificación obtenida:', data);
+    console.log('[DEBUG] Calificación obtenida:', data);
         return {
       calificacion: data.calificacion ?? 0,
       comentarios: data.comentarios ?? [],
     };
 
   } catch (error) {
+    console.error('[DEBUG] Error al obtener calificación:', error);
     throw new Error(`Error al obtener la calificación: ${(error as Error).message}`);
   }
 }

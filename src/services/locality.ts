@@ -11,6 +11,8 @@ export async function getLocalities(): Promise<Locality[]> {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}`},
     });
   if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    console.log(`[DEBUG] Error al buscar localidades: ${JSON.stringify(errorData)}`);
     throw new Error('Error cargando localidades');
   }
   const data = (await resp.json()) as ApiLocality[];
