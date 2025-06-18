@@ -31,12 +31,9 @@ export default function PaymentSuccessScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
   const params = route.params as any;
-  const url = params?.url || '';
 
-console.log('[DEBUG] route.params:', route.params);
-console.log('[DEBUG] url:', url);
-
-  const parsed = parseQueryParams(url);
+  // Si hay una URL (deep link), parseamos sus parámetros. Si no, usamos params directo.
+  const parsed = params?.url ? parseQueryParams(params.url) : params;
 
   const {
     idCompraIda,
@@ -55,6 +52,9 @@ console.log('[DEBUG] url:', url);
     returnBusId,
     returnSeats,
   } = parsed;
+
+  console.log('[DEBUG] route.params:', route.params);
+  console.log('[DEBUG] parsed data:', parsed);
 
   useEffect(() => {
     const idaId = Number(idCompraIda);
