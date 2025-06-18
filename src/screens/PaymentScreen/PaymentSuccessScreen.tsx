@@ -59,35 +59,90 @@ export default function PaymentSuccessScreen() {
   useEffect(() => {
     const idaId = Number(idCompraIda);
     const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
-
+    console.log('[DEBUG] idCompraIda:', idCompraIda);
+    console.log('[DEBUG] idCompraVuelta:', idCompraVuelta);
     if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
     if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
+
   }, [idCompraIda, idCompraVuelta]);
 
   const handleGeneratePDF = async () => {
-    const html = `
-      <html>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h1>Resumen de Compra</h1>
-          <p><strong>Origen → Destino:</strong> ${origin} → ${destination}</p>
-          <p><strong>Fecha Ida:</strong> ${departDate}</p>
-          <p><strong>Ómnibus Ida:</strong> Bus N° ${outboundBusId} - ${outboundHoraInicio} a ${outboundHoraFin}</p>
-          <p><strong>Asientos Ida:</strong> ${outboundSeats}</p>
-          ${
-            returnDate
-              ? `
-            <hr />
-            <p><strong>Fecha Vuelta:</strong> ${returnDate}</p>
-            <p><strong>Ómnibus Vuelta:</strong> Bus N° ${returnBusId} - ${returnHoraInicio} a ${returnHoraFin}</p>
-            <p><strong>Asientos Vuelta:</strong> ${returnSeats}</p>
-          `
-              : ''
-          }
-          <hr />
-          <p><strong>Total pago:</strong> $${totalPrice}</p>
-        </body>
-      </html>
-    `;
+   const html = `
+  <html>
+    <head>
+      <style>
+        body {
+          font-family: sans-serif;
+          padding: 24px;
+          color: #1f2c3a;
+        }
+        h1 {
+          color: green;
+          text-align: center;
+        }
+        .section {
+          margin-bottom: 24px;
+          padding: 16px;
+          border: 1px solid #91d5f4;
+          border-radius: 8px;
+        }
+        .section-title {
+          font-size: 20px;
+          font-weight: bold;
+          margin-bottom: 12px;
+        }
+        .sub-title {
+          font-size: 18px;
+          font-weight: bold;
+          margin-top: 16px;
+          margin-bottom: 8px;
+        }
+        .label {
+          font-weight: 600;
+          margin-top: 8px;
+        }
+        .value {
+          margin-left: 8px;
+        }
+        .total {
+          font-size: 18px;
+          font-weight: bold;
+          margin-top: 12px;
+          color: #1f2c3a;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Resumen de Compra</h1>
+
+      <div class="section">
+        <div class="section-title">Datos del Viaje</div>
+        <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
+        <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
+
+        <div class="sub-title">Ida</div>
+        <p><span class="label">Fecha:</span><span class="value">${departDate}</span></p>
+        <p><span class="label">Ómnibus:</span><span class="value">Bus N° ${outboundBusId}</span></p>
+        <p><span class="label">Horario:</span><span class="value">${outboundHoraInicio} a ${outboundHoraFin}</span></p>
+        <p><span class="label">Asientos:</span><span class="value">${outboundSeats}</span></p>
+
+        ${
+          returnDate
+            ? `
+          <div class="sub-title">Vuelta</div>
+          <p><span class="label">Fecha:</span><span class="value">${returnDate}</span></p>
+          <p><span class="label">Ómnibus:</span><span class="value">Bus N° ${returnBusId}</span></p>
+          <p><span class="label">Horario:</span><span class="value">${returnHoraInicio} a ${returnHoraFin}</span></p>
+          <p><span class="label">Asientos:</span><span class="value">${returnSeats}</span></p>
+        `
+            : ''
+        }
+
+        <p class="total">Total pagado: $${totalPrice}</p>
+      </div>
+    </body>
+  </html>
+`;
 
     const { uri } = await Print.printToFileAsync({ html });
     await Sharing.shareAsync(uri);
@@ -104,34 +159,53 @@ export default function PaymentSuccessScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>✅ ¡Pago exitoso!</Text>
 
-      <View style={styles.block}>
-        <Text style={styles.label}>Origen → Destino:</Text>
-        <Text style={styles.value}>{origin} → {destination}</Text>
-      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Datos del viaje</Text>
 
-      <View style={styles.block}>
-        <Text style={styles.label}>Fecha Ida:</Text>
-        <Text style={styles.value}>{departDate}</Text>
-        <Text style={styles.label}>Ómnibus Ida:</Text>
-        <Text style={styles.value}>Bus N° {outboundBusId} - {outboundHoraInicio} a {outboundHoraFin}</Text>
-        <Text style={styles.label}>Asientos Ida:</Text>
-        <Text style={styles.value}>{outboundSeats}</Text>
-      </View>
-
-      {returnDate && (
         <View style={styles.block}>
-          <Text style={styles.label}>Fecha Vuelta:</Text>
-          <Text style={styles.value}>{returnDate}</Text>
-          <Text style={styles.label}>Ómnibus Vuelta:</Text>
-          <Text style={styles.value}>Bus N° {returnBusId} - {returnHoraInicio} a {returnHoraFin}</Text>
-          <Text style={styles.label}>Asientos Vuelta:</Text>
-          <Text style={styles.value}>{returnSeats}</Text>
-        </View>
-      )}
+          <Text style={styles.label}>Origen</Text>
+          <Text style={styles.value}>{origin}</Text>
 
-      <View style={styles.block}>
-        <Text style={styles.label}>Total a Pagar:</Text>
-        <Text style={styles.total}>${totalPrice}</Text>
+          <Text style={styles.label}>Destino</Text>
+          <Text style={styles.value}>{destination}</Text>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subTitle}>IDA</Text>
+          <Text style={styles.label}>Fecha</Text>
+          <Text style={styles.value}>{departDate}</Text>
+
+          <Text style={styles.label}>Ómnibus</Text>
+          <Text style={styles.value}>Bus N° {outboundBusId}</Text>
+
+          <Text style={styles.label}>Horario</Text>
+          <Text style={styles.value}>{outboundHoraInicio} a {outboundHoraFin}</Text>
+
+          <Text style={styles.label}>Asientos</Text>
+          <Text style={styles.value}>{outboundSeats}</Text>
+        </View>
+
+        {returnDate && (
+          <View style={styles.block}>
+            <Text style={styles.subTitle}>VUELTA</Text>
+            <Text style={styles.label}>Fecha</Text>
+            <Text style={styles.value}>{returnDate}</Text>
+
+            <Text style={styles.label}>Ómnibus</Text>
+            <Text style={styles.value}>Bus N° {returnBusId}</Text>
+
+            <Text style={styles.label}>Horario</Text>
+            <Text style={styles.value}>{returnHoraInicio} a {returnHoraFin}</Text>
+
+            <Text style={styles.label}>Asientos</Text>
+            <Text style={styles.value}>{returnSeats}</Text>
+          </View>
+        )}
+
+        <View style={styles.block}>
+          <Text style={styles.label}>Total pagado</Text>
+          <Text style={styles.total}>$ {totalPrice}</Text>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleGeneratePDF}>
@@ -146,6 +220,31 @@ export default function PaymentSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
+  section: {
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: '#1f2c3a',
+  },
+  subTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 4,
+    color: '#1f2c3a',
+  },
   container: { flexGrow: 1, justifyContent: 'center', padding: 16, backgroundColor: '#c6eefc' },
   title: { fontSize: 24, marginBottom: 24, textAlign: 'center', color: 'green' },
   block: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#91d5f4', paddingBottom: 12 },

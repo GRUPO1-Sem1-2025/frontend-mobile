@@ -116,18 +116,26 @@ export async function crearSesionStripe(
 }
 
 export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
-  const body = { idCompra };
+  console.log('[DEBUG] Enviando ID de compra directamente:', idCompra);
 
   const response = await fetch(`${BASE_URL}/usuarios/cambiarEstadoCompra`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(idCompra),
   });
 
+  const text = await response.text();
+  console.log('[DEBUG] Respuesta:', response.status, text);
+
   if (!response.ok) {
-    const json = await response.json().catch(() => ({}));
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = {};
+    }
     const message = json?.mensaje || 'No se pudo actualizar el estado de compra';
     throw new Error(message);
   }
