@@ -3,7 +3,11 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { jwtDecode } from 'jwt-decode';
 import { Alert } from 'react-native';
-import { BASE_URL } from '../context/AuthContext';
+
+
+
+const extra = Constants.expoConfig?.extra || {};
+const NOTIFICACIONES_URL = extra.NOTIFICACIONES_URL;
 
 export async function registerForPushNotificationsAsync(tokenJWT) {
   console.log('[DEBUG registerPush] Inicio de función registerForPushNotificationsAsync');
@@ -63,9 +67,9 @@ export async function registerForPushNotificationsAsync(tokenJWT) {
   }
 
   try {
-    const url = `${BASE_URL}/token/guardarToken`;
+    const url = `${NOTIFICACIONES_URL}/usuarios/token`;
     const payload = {
-      id_usuario: userId,
+      usuarioId: userId,
       token: expoPushToken,
     };
 
