@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   getCalificacionViaje,
 } from '../../services/reservations';
 
+import { useFocusEffect } from '@react-navigation/native';
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
@@ -46,78 +47,81 @@ export default function TravelsScreens() {
   const [rating, setRating] = useState(0);
   const [comentario, setComentario] = useState('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const storedToken = await AsyncStorage.getItem('userToken');
-        if (!storedToken) throw new Error('Token no encontrado');
+  useFocusEffect(
+    useCallback(() => {
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          const storedToken = await AsyncStorage.getItem('userToken');
+          if (!storedToken) throw new Error('Token no encontrado');
 
-        setToken(storedToken);
+          setToken(storedToken);
 
-        const payload = JSON.parse(atob(storedToken.split('.')[1]));
-        const email = payload.sub;
-        const idUsuario = payload.id;
-        setUserEmail(email);
-        setUserId(idUsuario);
+          const payload = JSON.parse(atob(storedToken.split('.')[1]));
+          const email = payload.sub;
+          const idUsuario = payload.id;
+          setUserEmail(email);
+          setUserId(idUsuario);
 
-        const [reservasData, comprasData] = await Promise.all([
-          getReservas(email, storedToken),
-          getCompras(email, storedToken),
-        ]);
+          const [reservasData, comprasData] = await Promise.all([
+            getReservas(email, storedToken),
+            getCompras(email, storedToken),
+          ]);
 
-        setReservas(reservasData || []);
-        setCompras(comprasData || []);
+          setReservas(reservasData || []);
+          setCompras(comprasData || []);
 
-        const detallesEntries = await Promise.all(
-          comprasData.map(async (comp: any) => {
-            try {
-              const detalle = await getCompraViaje(comp.viajeId, comp.compraId, idUsuario);
-              return [comp.compraId, detalle];
-            } catch (error) {
-              console.error('Error al traer detalle de compra', comp.compraId, error);
-              return [comp.compraId, null];
-            }
-          })
-        );
+          const detallesEntries = await Promise.all(
+            comprasData.map(async (comp: any) => {
+              try {
+                const detalle = await getCompraViaje(comp.viajeId, comp.compraId, idUsuario);
+                return [comp.compraId, detalle];
+              } catch (error) {
+                console.error('Error al traer detalle de compra', comp.compraId, error);
+                return [comp.compraId, null];
+              }
+            })
+          );
 
-        const detalles: { [compraId: number]: any } = Object.fromEntries(detallesEntries);
-        setComprasDetalles(detalles);
+          const detalles: { [compraId: number]: any } = Object.fromEntries(detallesEntries);
+          setComprasDetalles(detalles);
 
-        const calificacionesEntries = await Promise.all(
-          comprasData.map(async (comp: any) => {
-            try {
-              const calificacionData = await getCalificacionViaje(comp.viajeId, storedToken);
-              return {
-                viajeId: comp.viajeId,
-                calificacion: calificacionData.calificacion ?? 0,
-                comentarios: calificacionData.comentarios ?? [],
-              };
-            } catch (error) {
-              console.error('Error al traer calificación de viaje', comp.viajeId, error);
-              return { viajeId: comp.viajeId, calificacion: 0, comentarios: [] };
-            }
-          })
-        );
+          const calificacionesEntries = await Promise.all(
+            comprasData.map(async (comp: any) => {
+              try {
+                const calificacionData = await getCalificacionViaje(comp.viajeId, idUsuario);
+                return {
+                  viajeId: comp.viajeId,
+                  calificacion: calificacionData.calificacion ?? 0,
+                  comentarios: calificacionData.comentarios ?? [],
+                };
+              } catch (error) {
+                console.error('Error al traer calificación de viaje', comp.viajeId, error);
+                return { viajeId: comp.viajeId, calificacion: 0, comentarios: [] };
+              }
+            })
+          );
 
-        const calificacionesObj: { [viajeId: number]: number } = {};
-        const comentariosObj: { [viajeId: number]: string[] } = {};
-        calificacionesEntries.forEach(item => {
-          calificacionesObj[item.viajeId] = item.calificacion;
-          comentariosObj[item.viajeId] = item.comentarios;
-        });
-        setCalificaciones(calificacionesObj);
-        setComentarios(comentariosObj);
-      } catch (error: any) {
-        console.error(error);
-        Alert.alert('Error', error.message || 'No se pudieron cargar los datos');
-      } finally {
-        setLoading(false);
-      }
-    };
+          const calificacionesObj: { [viajeId: number]: number } = {};
+          const comentariosObj: { [viajeId: number]: string[] } = {};
+          calificacionesEntries.forEach(item => {
+            calificacionesObj[item.viajeId] = item.calificacion;
+            comentariosObj[item.viajeId] = item.comentarios;
+          });
 
-    fetchData();
-  }, []);
+          setCalificaciones(calificacionesObj);
+          setComentarios(comentariosObj);
+        } catch (error: any) {
+          console.error(error);
+          Alert.alert('Error', error.message || 'No se pudieron cargar los datos');
+        } finally {
+          setLoading(false);
+        }
+      };
 
+      fetchData();
+    }, [])
+  );
   const handleOpenModal = (viajeId: number) => {
     setSelectedViajeId(viajeId);
     setRating(0);
@@ -125,21 +129,25 @@ export default function TravelsScreens() {
     setModalVisible(true);
   };
 
-  const handleSubmitCalificacion = async () => {
-    if (!selectedViajeId || rating === 0) {
-      Alert.alert('Error', 'Por favor, seleccioná una calificación.');
-      return;
-    }
+const handleSubmitCalificacion = async () => {
+  if (!selectedViajeId || rating === 0) {
+    Alert.alert('Error', 'Por favor, seleccioná una calificación.');
+    return;
+  }
 
-    try {
-      await calificarViaje(selectedViajeId, rating, comentario, token);
-      setCalificaciones(prev => ({ ...prev, [selectedViajeId]: rating }));
-      Alert.alert('¡Gracias!', 'Tu calificación ha sido registrada.');
-      setModalVisible(false);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo calificar el viaje');
-    }
-  };
+  try {
+    await calificarViaje(selectedViajeId, rating, comentario, userId!);
+    setCalificaciones(prev => ({ ...prev, [selectedViajeId]: rating }));
+    setComentarios(prev => ({
+      ...prev,
+      [selectedViajeId]: [comentario],
+    }));
+    Alert.alert('¡Gracias!', 'Tu calificación ha sido registrada.');
+    setModalVisible(false);
+  } catch (error: any) {
+    Alert.alert('Error', error.message || 'No se pudo calificar el viaje');
+  }
+};
 
   const renderStarsInput = () => {
     return (

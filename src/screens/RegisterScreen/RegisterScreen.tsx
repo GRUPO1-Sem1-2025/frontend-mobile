@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -33,15 +33,11 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [erroresCampos, setErroresCampos] = useState<{
-    nombre?: string;
-    apellido?: string;
-    email?: string;
-    password?: string;
-    confirm?: string;
-    ci?: string;
-    fecNac?: string;
-  }>({});
+
+  const [erroresCampos, setErroresCampos] = useState<Record<string, string>>({});
+  const [tocado, setTocado] = useState<Record<string, boolean>>({});
+
+  const didMountRef = useRef(false);
 
   const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
   const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -58,34 +54,40 @@ export default function RegisterScreen() {
 
   const validarCampos = () => {
     const ci = ciRaw.replace(/\D/g, '');
-    const errores: typeof erroresCampos = {};
+    const errores: Record<string, string> = {};
 
-    if (!nombre.trim()) errores.nombre = 'Campo obligatorio';
-    else if (nombre.trim().length < 3) errores.nombre = 'Mínimo 3 letras';
-    else if (!soloLetras.test(nombre)) errores.nombre = 'Solo letras';
+    if (!nombre.trim()) errores.nombre = 'Por favor ingresá tu nombre';
+    else if (nombre.trim().length < 3) errores.nombre = 'El nombre debe tener al menos 3 letras';
+    else if (!soloLetras.test(nombre)) errores.nombre = 'El nombre solo puede contener letras';
 
-    if (!apellido.trim()) errores.apellido = 'Campo obligatorio';
-    else if (apellido.trim().length < 3) errores.apellido = 'Mínimo 3 letras';
-    else if (!soloLetras.test(apellido)) errores.apellido = 'Solo letras';
+    if (!apellido.trim()) errores.apellido = 'Por favor ingresá tu apellido';
+    else if (apellido.trim().length < 3) errores.apellido = 'El apellido debe tener al menos 3 letras';
+    else if (!soloLetras.test(apellido)) errores.apellido = 'El apellido solo puede contener letras';
 
-    if (!email.trim()) errores.email = 'Campo obligatorio';
-    else if (!emailValido.test(email)) errores.email = 'Email no válido';
+    if (!email.trim()) errores.email = 'Por favor ingresá un correo electrónico';
+    else if (!emailValido.test(email)) errores.email = 'El correo electrónico no es válido';
 
-    if (!password) errores.password = 'Campo obligatorio';
-    else if (!passwordRegex.test(password)) errores.password = 'Debe tener letras y números, mínimo 6 caracteres';
+    if (!password) errores.password = 'Por favor ingresá una contraseña';
+    else if (!passwordRegex.test(password)) errores.password = 'La contraseña debe tener al menos 6 caracteres e incluir letras y números';
 
-    if (!confirm) errores.confirm = 'Campo obligatorio';
-    else if (password !== confirm) errores.confirm = 'No coincide con la contraseña';
+    if (!confirm) errores.confirm = 'Por favor confirmá tu contraseña';
+    else if (password !== confirm) errores.confirm = 'Las contraseñas no coinciden';
 
-    if (!ci) errores.ci = 'Campo obligatorio';
-    else if (ci.length !== 8) errores.ci = 'Debe tener 8 dígitos';
+    if (!ci) errores.ci = 'Por favor ingresá tu cédula';
+    else if (ci.length !== 8) errores.ci = 'La cédula debe tener 8 dígitos';
 
-    if (!fecNac) errores.fecNac = 'Selecciona una fecha';
-    else {
+    if (!fecNac) {
+      errores.fecNac = 'Por favor seleccioná tu fecha de nacimiento';
+    } else {
       const hoy = new Date();
-      const fechaNacimiento = new Date(fecNac);
-      const edad = hoy.getFullYear() - fechaNacimiento.getFullYear() - (hoy < new Date(fechaNacimiento.setFullYear(hoy.getFullYear())) ? 1 : 0);
-      if (edad < 10) errores.fecNac = 'Debes tener al menos 10 años';
+      const nac = new Date(fecNac.getTime());
+      const edad = hoy.getFullYear() - nac.getFullYear() - (hoy < new Date(nac.setFullYear(hoy.getFullYear())) ? 1 : 0);
+
+      if (edad < 10) {
+        errores.fecNac = 'Debés tener al menos 10 años para registrarte';
+      } else if (edad > 100) {
+        errores.fecNac = 'La edad máxima permitida es de 100 años';
+      }
     }
 
     setErroresCampos(errores);
@@ -93,7 +95,11 @@ export default function RegisterScreen() {
   };
 
   useEffect(() => {
-    validarCampos();
+    if (didMountRef.current) {
+      validarCampos();
+    } else {
+      didMountRef.current = true;
+    }
   }, [nombre, apellido, email, password, confirm, ciRaw, fecNac]);
 
   const esFormularioValido = () => {
@@ -110,6 +116,16 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    setTocado({
+      nombre: true,
+      apellido: true,
+      email: true,
+      password: true,
+      confirm: true,
+      ci: true,
+      fecNac: true,
+    });
+
     const errores = validarCampos();
     if (Object.keys(errores).length > 0 || !fecNac) return;
 
@@ -132,143 +148,166 @@ export default function RegisterScreen() {
 
   const handleDateChange = (_: any, selectedDate?: Date) => {
     setShowDate(false);
-    if (selectedDate) setFecNac(selectedDate);
+    if (selectedDate) {
+      setFecNac(selectedDate);
+      setTocado(prev => ({ ...prev, fecNac: true }));
+    }
   };
-    return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-    >
-      <ScrollView
+
+  const handleBlur = (campo: string) => {
+    setTocado(prev => ({ ...prev, [campo]: true }));
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#c6eefc' }}>
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <View style={styles.container}>
-          <Text style={styles.title}>Registro</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
+            <Text style={styles.title}>Registro</Text>
 
-          <TextInput
-            placeholder="Nombre"
-            style={[styles.input, erroresCampos.nombre && styles.inputError]}
-            value={nombre}
-            onChangeText={setNombre}
-          />
-          {erroresCampos.nombre && <Text style={styles.error}>{erroresCampos.nombre}</Text>}
-
-          <TextInput
-            placeholder="Apellido"
-            style={[styles.input, erroresCampos.apellido && styles.inputError]}
-            value={apellido}
-            onChangeText={setApellido}
-          />
-          {erroresCampos.apellido && <Text style={styles.error}>{erroresCampos.apellido}</Text>}
-
-          <TextInput
-            placeholder="Cédula de Identidad"
-            style={[styles.input, erroresCampos.ci && styles.inputError]}
-            value={formatearCI(ciRaw)}
-            onChangeText={setCiRaw}
-            keyboardType="numeric"
-          />
-          {erroresCampos.ci && <Text style={styles.error}>{erroresCampos.ci}</Text>}
-
-          <TextInput
-            placeholder="Correo electrónico"
-            style={[styles.input, erroresCampos.email && styles.inputError]}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          {erroresCampos.email && <Text style={styles.error}>{erroresCampos.email}</Text>}
-
-          <TouchableOpacity
-            style={[styles.dateInput, erroresCampos.fecNac && styles.inputError]}
-            onPress={() => setShowDate(true)}
-          >
-            <View style={styles.dateRow}>
-              <Ionicons name="calendar-outline" size={20} color="#1f2c3a" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#1f2c3a' }}>
-                {fecNac ? fecNac.toLocaleDateString() : 'Selecciona tu fecha de nacimiento'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          {erroresCampos.fecNac && <Text style={styles.error}>{erroresCampos.fecNac}</Text>}
-
-          {showDate && (
-            Platform.OS === 'ios' ? (
-              <Modal visible transparent animationType="slide">
-                <View style={styles.modalContainer}>
-                  <View style={styles.modalContent}>
-                    <DateTimePicker
-                      value={fecNac || new Date()}
-                      mode="date"
-                      display="spinner"
-                      onChange={handleDateChange}
-                      maximumDate={new Date()}
-                      minimumDate={new Date(1900, 0, 1)}
-                      themeVariant="light"
-                    />
-                  </View>
-                </View>
-              </Modal>
-            ) : (
-              <DateTimePicker
-                value={fecNac || new Date()}
-                mode="date"
-                display="default"
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-                minimumDate={new Date(1900, 0, 1)}
-              />
-            )
-          )}
-
-          <View style={styles.inputContainer}>
             <TextInput
-              placeholder="Contraseña"
-              style={[styles.inputField, erroresCampos.password && styles.inputError]}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
+              placeholder="Nombre"
+              style={[styles.input, tocado.nombre && erroresCampos.nombre && styles.inputError]}
+              value={nombre}
+              onChangeText={setNombre}
+              onBlur={() => handleBlur('nombre')}
             />
-            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.iconButton}>
-              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
-            </TouchableOpacity>
-          </View>
-          {erroresCampos.password && <Text style={styles.error}>{erroresCampos.password}</Text>}
+            {tocado.nombre && erroresCampos.nombre && <Text style={styles.error}>{erroresCampos.nombre}</Text>}
 
-          <View style={styles.inputContainer}>
             <TextInput
-              placeholder="Confirmar contraseña"
-              style={[styles.inputField, erroresCampos.confirm && styles.inputError]}
-              secureTextEntry={!showConfirm}
-              value={confirm}
-              onChangeText={setConfirm}
+              placeholder="Apellido"
+              style={[styles.input, tocado.apellido && erroresCampos.apellido && styles.inputError]}
+              value={apellido}
+              onChangeText={setApellido}
+              onBlur={() => handleBlur('apellido')}
             />
-            <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={styles.iconButton}>
-              <Ionicons name={showConfirm ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
-            </TouchableOpacity>
-          </View>
-          {erroresCampos.confirm && <Text style={styles.error}>{erroresCampos.confirm}</Text>}
+            {tocado.apellido && erroresCampos.apellido && <Text style={styles.error}>{erroresCampos.apellido}</Text>}
 
-          {error && <Text style={styles.error}>{error}</Text>}
+            <TextInput
+              placeholder="Cédula de Identidad"
+              style={[styles.input, tocado.ci && erroresCampos.ci && styles.inputError]}
+              value={formatearCI(ciRaw)}
+              onChangeText={setCiRaw}
+              onBlur={() => handleBlur('ci')}
+              keyboardType="numeric"
+            />
+            {tocado.ci && erroresCampos.ci && <Text style={styles.error}>{erroresCampos.ci}</Text>}
 
-          {loading ? (
-            <ActivityIndicator color="#1f2c3a" />
-          ) : (
+            <TextInput
+              placeholder="Correo electrónico"
+              style={[styles.input, tocado.email && erroresCampos.email && styles.inputError]}
+              value={email}
+              onChangeText={setEmail}
+              onBlur={() => handleBlur('email')}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            {tocado.email && erroresCampos.email && <Text style={styles.error}>{erroresCampos.email}</Text>}
+
             <TouchableOpacity
-              style={[styles.registerButton, !esFormularioValido() && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={!esFormularioValido()}
+              style={[styles.dateInput, tocado.fecNac && erroresCampos.fecNac && styles.inputError]}
+              onPress={() => setShowDate(true)}
             >
-              <Text style={styles.registerButtonText}>Registrarme</Text>
+              <View style={styles.dateRow}>
+                <Ionicons name="calendar-outline" size={20} color="#1f2c3a" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#1f2c3a' }}>
+                  {fecNac ? fecNac.toLocaleDateString() : 'Seleccioná tu fecha de nacimiento (ej: 20/06/1995)'}
+                </Text>
+              </View>
             </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            {tocado.fecNac && erroresCampos.fecNac && <Text style={styles.error}>{erroresCampos.fecNac}</Text>}
+
+            {showDate && (() => {
+              const hoy = new Date();
+              const fechaMaximaNacimiento = new Date();
+              fechaMaximaNacimiento.setFullYear(hoy.getFullYear() - 10);
+              const fechaMinimaNacimiento = new Date();
+              fechaMinimaNacimiento.setFullYear(hoy.getFullYear() - 100);
+              const fechaInicial = new Date();
+              fechaInicial.setFullYear(hoy.getFullYear() - 25);
+
+              return Platform.OS === 'ios' ? (
+                <Modal visible transparent animationType="slide">
+                  <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                      <DateTimePicker
+                        value={fecNac || fechaInicial}
+                        mode="date"
+                        display="spinner"
+                        onChange={handleDateChange}
+                        maximumDate={fechaMaximaNacimiento}
+                        minimumDate={fechaMinimaNacimiento}
+                        themeVariant="light"
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={fecNac || fechaInicial}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  maximumDate={fechaMaximaNacimiento}
+                  minimumDate={fechaMinimaNacimiento}
+                />
+              );
+            })()}
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                placeholder="Contraseña"
+                style={[styles.inputField, tocado.password && erroresCampos.password && styles.inputError]}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                onBlur={() => handleBlur('password')}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.iconButton}>
+                <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
+              </TouchableOpacity>
+            </View>
+            {tocado.password && erroresCampos.password && <Text style={styles.error}>{erroresCampos.password}</Text>}
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                placeholder="Confirmar contraseña"
+                style={[styles.inputField, tocado.confirm && erroresCampos.confirm && styles.inputError]}
+                secureTextEntry={!showConfirm}
+                value={confirm}
+                onChangeText={setConfirm}
+                onBlur={() => handleBlur('confirm')}
+              />
+              <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={styles.iconButton}>
+                <Ionicons name={showConfirm ? 'eye' : 'eye-off'} size={24} color="#1f2c3a" />
+              </TouchableOpacity>
+            </View>
+            {tocado.confirm && erroresCampos.confirm && <Text style={styles.error}>{erroresCampos.confirm}</Text>}
+
+            {error && <Text style={styles.error}>{error}</Text>}
+
+            {loading ? (
+              <ActivityIndicator color="#1f2c3a" />
+            ) : (
+              <TouchableOpacity
+                style={[styles.registerButton, !esFormularioValido() && styles.buttonDisabled]}
+                onPress={handleRegister}
+                disabled={!esFormularioValido()}
+              >
+                <Text style={styles.registerButtonText}>Registrarme</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -362,4 +401,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-

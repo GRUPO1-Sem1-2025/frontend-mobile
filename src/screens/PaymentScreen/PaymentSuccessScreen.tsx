@@ -6,9 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as MediaLibrary from 'expo-media-library';
+import * as MailComposer from 'expo-mail-composer';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra } from '../../services/purchases';
 
@@ -27,12 +31,24 @@ function parseQueryParams(url: string): Record<string, string> {
   }
 }
 
+function formatFecha(iso: string) {
+  const date = new Date(iso);
+  return date.toLocaleDateString('es-UY', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function formatHora(hora: string) {
+  return hora.length >= 5 ? hora.slice(0, 5) : hora;
+}
+
 export default function PaymentSuccessScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
   const params = route.params as any;
 
-  // Si hay una URL (deep link), parseamos sus parámetros. Si no, usamos params directo.
   const parsed = params?.url ? parseQueryParams(params.url) : params;
 
   const {
@@ -53,99 +69,95 @@ export default function PaymentSuccessScreen() {
     returnSeats,
   } = parsed;
 
-  console.log('[DEBUG] route.params:', route.params);
-  console.log('[DEBUG] parsed data:', parsed);
-
   useEffect(() => {
     const idaId = Number(idCompraIda);
     const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
-    console.log('[DEBUG] idCompraIda:', idCompraIda);
-    console.log('[DEBUG] idCompraVuelta:', idCompraVuelta);
     if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
     if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
-
   }, [idCompraIda, idCompraVuelta]);
 
   const handleGeneratePDF = async () => {
-   const html = `
-  <html>
-    <head>
-      <style>
-        body {
-          font-family: sans-serif;
-          padding: 24px;
-          color: #1f2c3a;
-        }
-        h1 {
-          color: green;
-          text-align: center;
-        }
-        .section {
-          margin-bottom: 24px;
-          padding: 16px;
-          border: 1px solid #91d5f4;
-          border-radius: 8px;
-        }
-        .section-title {
-          font-size: 20px;
-          font-weight: bold;
-          margin-bottom: 12px;
-        }
-        .sub-title {
-          font-size: 18px;
-          font-weight: bold;
-          margin-top: 16px;
-          margin-bottom: 8px;
-        }
-        .label {
-          font-weight: 600;
-          margin-top: 8px;
-        }
-        .value {
-          margin-left: 8px;
-        }
-        .total {
-          font-size: 18px;
-          font-weight: bold;
-          margin-top: 12px;
-          color: #1f2c3a;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Resumen de Compra</h1>
+    const formattedTotal = parseFloat(totalPrice).toFixed(2);
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const fileName = `ticket-${idCompraIda || 'viaje'}-${fechaHoy}.pdf`;
 
-      <div class="section">
-        <div class="section-title">Datos del Viaje</div>
-        <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
-        <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
+    const html = `
+    <html>
+      <head><style>
+        body { font-family: sans-serif; padding: 24px; color: #1f2c3a; }
+        h1 { text-align: center; color: green; }
+        .section { border: 1px solid #91d5f4; padding: 16px; border-radius: 8px; margin-top: 20px; }
+        .label { font-weight: bold; }
+        .value { margin-left: 8px; }
+      </style></head>
+      <body>
+        <h1>Resumen de Compra</h1>
+        <div class="section">
+          <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
+          <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
+          <p><span class="label">Fecha Ida:</span><span class="value">${formatFecha(departDate)}</span></p>
+          <p><span class="label">Horario Ida:</span><span class="value">${formatHora(outboundHoraInicio)} a ${formatHora(outboundHoraFin)}</span></p>
+          <p><span class="label">Asientos Ida:</span><span class="value">${outboundSeats}</span></p>
+          ${returnDate
+        ? `
+            <p><span class="label">Fecha Vuelta:</span><span class="value">${formatFecha(returnDate)}</span></p>
+            <p><span class="label">Horario Vuelta:</span><span class="value">${formatHora(returnHoraInicio)} a ${formatHora(returnHoraFin)}</span></p>
+            <p><span class="label">Asientos Vuelta:</span><span class="value">${returnSeats}</span></p>
+          `
+        : ''
+      }
+          <p><span class="label">Total pagado:</span><span class="value">$${formattedTotal}</span></p>
+        </div>
+      </body>
+    </html>
+  `;
 
-        <div class="sub-title">Ida</div>
-        <p><span class="label">Fecha:</span><span class="value">${departDate}</span></p>
-        <p><span class="label">Ómnibus:</span><span class="value">Bus N° ${outboundBusId}</span></p>
-        <p><span class="label">Horario:</span><span class="value">${outboundHoraInicio} a ${outboundHoraFin}</span></p>
-        <p><span class="label">Asientos:</span><span class="value">${outboundSeats}</span></p>
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
 
-        ${
-          returnDate
-            ? `
-          <div class="sub-title">Vuelta</div>
-          <p><span class="label">Fecha:</span><span class="value">${returnDate}</span></p>
-          <p><span class="label">Ómnibus:</span><span class="value">Bus N° ${returnBusId}</span></p>
-          <p><span class="label">Horario:</span><span class="value">${returnHoraInicio} a ${returnHoraFin}</span></p>
-          <p><span class="label">Asientos:</span><span class="value">${returnSeats}</span></p>
-        `
-            : ''
-        }
+      const localPath = FileSystem.documentDirectory + fileName;
+      await FileSystem.copyAsync({ from: uri, to: localPath });
 
-        <p class="total">Total pagado: $${totalPrice}</p>
-      </div>
-    </body>
-  </html>
-`;
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (perm.status === 'granted') {
+        const asset = await MediaLibrary.createAssetAsync(localPath);
+        await MediaLibrary.createAlbumAsync('Tickets', asset, false);
+      }
 
-    const { uri } = await Print.printToFileAsync({ html });
-    await Sharing.shareAsync(uri);
+      if (Platform.OS === 'android') {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: localPath,
+          flags: 1,
+          type: 'application/pdf',
+        });
+      } else {
+        await Print.printAsync({ uri: localPath });
+      }
+
+      Alert.alert('PDF guardado', `Tu ticket fue guardado como "${fileName}" en la carpeta Tickets.`);
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      Alert.alert('Error', 'No se pudo generar o abrir el PDF.');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    const fileName = `ticket-${idCompraIda || 'viaje'}.pdf`;
+    const localPath = FileSystem.documentDirectory + fileName;
+
+    const isAvailable = await MailComposer.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('Correo no disponible', 'Este dispositivo no soporta envío de correo desde la app.');
+      return;
+    }
+
+    await MailComposer.composeAsync({
+      recipients: [],
+      subject: 'Tu ticket de viaje',
+      body: 'Adjunto encontrarás el ticket de tu compra reciente.',
+      attachments: [localPath],
+    });
   };
 
   const handleGoHome = () => {
@@ -173,13 +185,15 @@ export default function PaymentSuccessScreen() {
         <View style={styles.block}>
           <Text style={styles.subTitle}>IDA</Text>
           <Text style={styles.label}>Fecha</Text>
-          <Text style={styles.value}>{departDate}</Text>
+          <Text style={styles.value}>{formatFecha(departDate)}</Text>
 
           <Text style={styles.label}>Ómnibus</Text>
           <Text style={styles.value}>Bus N° {outboundBusId}</Text>
 
           <Text style={styles.label}>Horario</Text>
-          <Text style={styles.value}>{outboundHoraInicio} a {outboundHoraFin}</Text>
+          <Text style={styles.value}>
+            {formatHora(outboundHoraInicio)} a {formatHora(outboundHoraFin)}
+          </Text>
 
           <Text style={styles.label}>Asientos</Text>
           <Text style={styles.value}>{outboundSeats}</Text>
@@ -189,13 +203,15 @@ export default function PaymentSuccessScreen() {
           <View style={styles.block}>
             <Text style={styles.subTitle}>VUELTA</Text>
             <Text style={styles.label}>Fecha</Text>
-            <Text style={styles.value}>{returnDate}</Text>
+            <Text style={styles.value}>{formatFecha(returnDate)}</Text>
 
             <Text style={styles.label}>Ómnibus</Text>
             <Text style={styles.value}>Bus N° {returnBusId}</Text>
 
             <Text style={styles.label}>Horario</Text>
-            <Text style={styles.value}>{returnHoraInicio} a {returnHoraFin}</Text>
+            <Text style={styles.value}>
+              {formatHora(returnHoraInicio)} a {formatHora(returnHoraFin)}
+            </Text>
 
             <Text style={styles.label}>Asientos</Text>
             <Text style={styles.value}>{returnSeats}</Text>
@@ -204,12 +220,16 @@ export default function PaymentSuccessScreen() {
 
         <View style={styles.block}>
           <Text style={styles.label}>Total pagado</Text>
-          <Text style={styles.total}>$ {totalPrice}</Text>
+          <Text style={styles.total}>$ {parseFloat(totalPrice).toFixed(2)}</Text>
         </View>
       </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleGeneratePDF}>
-        <Text style={styles.primaryButtonText}>Descargar PDF</Text>
+        <Text style={styles.primaryButtonText}>Ver Ticket en PDF</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleSendEmail}>
+        <Text style={styles.secondaryButtonText}>Enviar por Email</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryButton} onPress={handleGoHome}>

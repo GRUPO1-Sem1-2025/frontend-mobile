@@ -18,8 +18,7 @@ export async function getReservas(email: string, token: string) {
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       }
     );
@@ -53,20 +52,22 @@ export async function calificarViaje(
   idViaje: number,
   calificacion: number,
   comentario: string,
-  token: string
+  idUsuario: number,
 ) {
   try {
     const body = {
       idViaje,
       calificacion,
-      comentario,
+      comentario: {
+        idUsuario,
+        comentario,
+      },
     };
 
     const response = await fetch(`${BASE_URL}/viajes/calificarViaje`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     });
@@ -96,25 +97,18 @@ export async function getCompraViaje(
 }
 
 // 📌 Obtener calificación de un viaje
-export async function getCalificacionViaje(idViaje: number, token: string) {
+export async function getCalificacionViaje(idViaje: number, idUsuario: number) {
   try {
     const response = await fetch(
-      `${BASE_URL}/viajes/verCalificacionComentario?idViaje=${idViaje}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      `${BASE_URL}/viajes/verCalificacionUsuario?idViaje=${idViaje}&idUsuario=${idUsuario}`
     );
-    const data = await handleResponse(response, 'No se pudo obtener la calificación');
-    console.log('[DEBUG] Calificación obtenida:', data);
-        return {
-      calificacion: data.calificacion ?? 0,
-      comentarios: data.comentarios ?? [],
-    };
 
+    const data = await handleResponse(response, 'No se pudo obtener la calificación');
+
+    return {
+      calificacion: data.calificacion ?? 0,
+      comentarios: data.comentario ? [data.comentario] : [],
+    };
   } catch (error) {
     console.error('[DEBUG] Error al obtener calificación:', error);
     throw new Error(`Error al obtener la calificación: ${(error as Error).message}`);
