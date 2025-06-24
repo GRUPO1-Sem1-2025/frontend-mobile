@@ -11,8 +11,6 @@ import PaymentSuccessScreen from './screens/PaymentScreen/PaymentSuccessScreen';
 import PaymentCancelScreen from './screens/PaymentScreen/PaymentCancelScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Buffer } from 'buffer';
-global.Buffer = global.Buffer || Buffer;
 // Definir el stack principal
 type RootStackParamList = {
   AppDrawer: undefined;

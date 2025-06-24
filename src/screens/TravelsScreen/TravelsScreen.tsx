@@ -20,8 +20,8 @@ import {
   getCalificacionViaje,
 } from '../../services/reservations';
 
-import { Buffer } from 'buffer';
 import { useFocusEffect } from '@react-navigation/native';
+
 const colors = {
   solarYellow: '#f9c94e',
   busWhite: '#ffffff',
@@ -56,11 +56,12 @@ export default function TravelsScreens() {
           const storedToken = await AsyncStorage.getItem('userToken');
           if (!storedToken) throw new Error('Token no encontrado');
 
-setToken(storedToken);
+          setToken(storedToken);
 
-const payloadBase64 = storedToken.split('.')[1]; // ✅ usar directamente el valor leído
-const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
-const payload = JSON.parse(decoded);
+          const payloadBase64 = storedToken.split('.')[1];
+          // Use atob for Base64 decoding
+          const decoded = atob(payloadBase64);
+          const payload = JSON.parse(decoded);
           const email = payload.sub;
           const idUsuario = payload.id;
           setUserEmail(email);
@@ -125,6 +126,7 @@ const payload = JSON.parse(decoded);
       fetchData();
     }, [])
   );
+
   const handleOpenModal = (viajeId: number) => {
     setSelectedViajeId(viajeId);
     setRating(0);
@@ -132,25 +134,25 @@ const payload = JSON.parse(decoded);
     setModalVisible(true);
   };
 
-const handleSubmitCalificacion = async () => {
-  if (!selectedViajeId || rating === 0) {
-    Alert.alert('Error', 'Por favor, seleccioná una calificación.');
-    return;
-  }
+  const handleSubmitCalificacion = async () => {
+    if (!selectedViajeId || rating === 0) {
+      Alert.alert('Error', 'Por favor, seleccioná una calificación.');
+      return;
+    }
 
-  try {
-    await calificarViaje(selectedViajeId, rating, comentario, userId!);
-    setCalificaciones(prev => ({ ...prev, [selectedViajeId]: rating }));
-    setComentarios(prev => ({
-      ...prev,
-      [selectedViajeId]: [comentario],
-    }));
-    Alert.alert('¡Gracias!', 'Tu calificación ha sido registrada.');
-    setModalVisible(false);
-  } catch (error: any) {
-    Alert.alert('Error', error.message || 'No se pudo calificar el viaje');
-  }
-};
+    try {
+      await calificarViaje(selectedViajeId, rating, comentario, userId!);
+      setCalificaciones(prev => ({ ...prev, [selectedViajeId]: rating }));
+      setComentarios(prev => ({
+        ...prev,
+        [selectedViajeId]: [comentario],
+      }));
+      Alert.alert('¡Gracias!', 'Tu calificación ha sido registrada.');
+      setModalVisible(false);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo calificar el viaje');
+    }
+  };
 
   const renderStarsInput = () => {
     return (

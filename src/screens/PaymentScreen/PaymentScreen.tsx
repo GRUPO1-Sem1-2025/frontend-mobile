@@ -15,7 +15,7 @@ import { getLocalities } from '../../services/locality';
 import { crearSesionStripe, getReservasUsuario } from '../../services/purchases';
 import { Trip } from '../../types/trips';
 import { FontAwesome } from '@expo/vector-icons';
-import { Buffer } from 'buffer';
+
 type RouteParams = {
   origin: number;
   destination: number;
@@ -33,7 +33,6 @@ type RouteParams = {
 export default function PaymentScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
-
 
   const {
     origin,
@@ -122,16 +121,17 @@ export default function PaymentScreen() {
     return () => clearInterval(interval);
   }, []);
 
-function decodeToken(token: string): { email: string } {
-  try {
-    const payloadBase64 = token.split('.')[1];
-    const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
-    const payload = JSON.parse(decodedPayload);
-    return { email: payload.sub };
-  } catch {
-    throw new Error('Token inválido');
+  function decodeToken(token: string): { email: string } {
+    try {
+      const payloadBase64 = token.split('.')[1];
+      // Use atob for Base64 decoding
+      const decodedPayload = atob(payloadBase64);
+      const payload = JSON.parse(decodedPayload);
+      return { email: payload.sub };
+    } catch {
+      throw new Error('Token inválido');
+    }
   }
-}
 
   const formatTime = (sec: number) => {
     const min = Math.floor(sec / 60).toString().padStart(2, '0');
@@ -215,22 +215,21 @@ function decodeToken(token: string): { email: string } {
         </View>
       )}
 
-<View style={styles.totalBlock}>
-  {discountPercent > 0 && (
-    <View style={styles.discountBox}>
-      <View style={styles.discountRow}>
-        <FontAwesome name="ticket" size={20} color="#fff" style={{ marginRight: 8 }} />
-        <Text style={styles.discountText}>Descuento aplicado</Text>
+      <View style={styles.totalBlock}>
+        {discountPercent > 0 && (
+          <View style={styles.discountBox}>
+            <View style={styles.discountRow}>
+              <FontAwesome name="ticket" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.discountText}>Descuento aplicado</Text>
+            </View>
+            <Text style={styles.discountAmount}>
+              -{discountPercent}% (${totalPrice - finalTotal})
+            </Text>
+          </View>
+        )}
+        <Text style={styles.totalLabel}>Total a Pagar:</Text>
+        <Text style={styles.total}>${finalTotal}</Text>
       </View>
-      <Text style={styles.discountAmount}>
-        -{discountPercent}% (${totalPrice - finalTotal})
-      </Text>
-    </View>
-  )}
-  <Text style={styles.totalLabel}>Total a Pagar:</Text>
-  <Text style={styles.total}>${finalTotal}</Text>
-</View>
-
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
         <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
@@ -280,30 +279,30 @@ const styles = StyleSheet.create({
     color: '#1f2c3a',
   },
   discountRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginBottom: 4,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   discountBox: {
-  backgroundColor: '#f44336',
-  borderRadius:  8,
-  padding: 10,
-  marginBottom: 12,
-},
-discountText: {
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: '600',
-  textAlign: 'center',
-},
-discountAmount: {
-  color: '#fff',
-  fontSize: 20,
-  fontWeight: 'bold',
-  textAlign: 'center',
-  marginTop: 4,
-},
+    backgroundColor: '#f44336',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  discountText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  discountAmount: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 4,
+  },
   totalBlock: {
     backgroundColor: '#1f2c3a',
     borderRadius: 12,
@@ -341,7 +340,7 @@ discountAmount: {
     marginBottom: 16,
     borderLeftWidth: 5,
     borderLeftColor: '#f9c94e',
-  }, 
+  },
   alertMessage: {
     fontSize: 14,
     color: '#1f2c3a',

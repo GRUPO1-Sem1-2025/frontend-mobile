@@ -17,7 +17,6 @@
       "supportsTablet": true
     },
     "android": {
-
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -37,7 +36,10 @@
       "eas": {
         "projectId": "1d9f88d3-4481-4ca0-8ecc-9f7f4d469fb1"
       },
-       "linkingPrefix": "https://tecnobus.dev"
-    }
+      "linkingPrefix": "https://tecnobus.dev"
+    },
+    "plugins": [
+      "expo-notifications"
+    ]
   }
 }

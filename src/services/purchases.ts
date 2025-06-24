@@ -5,7 +5,6 @@ const extra = Constants.expoConfig?.extra || {};
 const STRIPE_API_URL = extra.STRIPE_API_URL;
 const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
 
-import { Buffer } from 'buffer';
 interface PurchaseRequest {
   usuarioId: number;
   viajeId: number;
@@ -16,7 +15,8 @@ interface PurchaseRequest {
 function decodeToken(token: string): { id: number } {
   try {
     const payloadBase64 = token.split('.')[1];
-    const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    // Use atob for Base64 decoding, which is available in React Native environments
+    const decoded = atob(payloadBase64);
     const payload = JSON.parse(decoded);
     return { id: payload.id };
   } catch (e) {
@@ -98,13 +98,13 @@ export async function crearSesionStripe(
     baseSuccessUrl.searchParams.append('idCompraVuelta', idCompraVuelta.toString());
   }
 
-if (extraData) {
-  for (const [key, value] of Object.entries(extraData)) {
-    if (value && !baseSuccessUrl.searchParams.has(key)) {
-      baseSuccessUrl.searchParams.append(key, value);
+  if (extraData) {
+    for (const [key, value] of Object.entries(extraData)) {
+      if (value && !baseSuccessUrl.searchParams.has(key)) {
+        baseSuccessUrl.searchParams.append(key, value);
+      }
     }
   }
-}
 
   params.append('success_url', baseSuccessUrl.toString());
   params.append('cancel_url', 'http://tecnobus.uy:8090/payment-cancel.html');
@@ -136,7 +136,6 @@ if (extraData) {
 }
 
 export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
-
   const response = await fetch(`${BASE_URL}/usuarios/cambiarEstadoCompra`, {
     method: 'POST',
     headers: {

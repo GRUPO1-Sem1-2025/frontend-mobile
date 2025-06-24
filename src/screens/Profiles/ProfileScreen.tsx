@@ -12,7 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { getUserByEmail, updateUserProfile } from '../../services/users';
-import { Buffer } from 'buffer';
+
 function formatCI(ci?: string | null): string {
   if (!ci) return '';
   const digits = ci.replace(/\D/g, '');
@@ -50,7 +50,8 @@ export default function ProfileScreen() {
 
         const data = await getUserByEmail(token);
         const payloadBase64 = token.split('.')[1];
-        const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+        // Use atob for Base64 decoding
+        const decodedPayload = atob(payloadBase64);
         const payload = JSON.parse(decodedPayload);
         const fullUser = { ...data, id: payload.id, token };
 
@@ -68,7 +69,7 @@ export default function ProfileScreen() {
   }, []);
 
   useEffect(() => {
-  const regex = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]{3,}$/;
+    const regex = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]{3,}$/;
     setErrors(prev => ({
       ...prev,
       nombre: regex.test(nombre) ? '' : 'Mínimo 3 letras, solo texto',

@@ -1,6 +1,5 @@
 import Constants from 'expo-constants';
 import { BASE_URL } from '../context/AuthContext';
-import { Buffer } from 'buffer';
 
 function decodeToken(token: string): { email: string } {
   if (!token || typeof token !== 'string') {
@@ -14,7 +13,8 @@ function decodeToken(token: string): { email: string } {
 
   try {
     const payloadBase64 = parts[1];
-    const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    // Use atob for Base64 decoding
+    const decodedPayload = atob(payloadBase64);
     const payload = JSON.parse(decodedPayload);
 
     if (!payload.sub) {
