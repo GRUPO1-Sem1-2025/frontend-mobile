@@ -20,6 +20,7 @@ import {
   getCalificacionViaje,
 } from '../../services/reservations';
 
+import { Buffer } from 'buffer';
 import { useFocusEffect } from '@react-navigation/native';
 const colors = {
   solarYellow: '#f9c94e',
@@ -57,7 +58,9 @@ export default function TravelsScreens() {
 
           setToken(storedToken);
 
-          const payload = JSON.parse(atob(storedToken.split('.')[1]));
+          const payloadBase64 = token.split('.')[1];
+const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+const payload = JSON.parse(decoded);
           const email = payload.sub;
           const idUsuario = payload.id;
           setUserEmail(email);

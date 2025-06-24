@@ -15,6 +15,7 @@ import { getLocalities } from '../../services/locality';
 import { crearSesionStripe, getReservasUsuario } from '../../services/purchases';
 import { Trip } from '../../types/trips';
 import { FontAwesome } from '@expo/vector-icons';
+import { Buffer } from 'buffer';
 type RouteParams = {
   origin: number;
   destination: number;
@@ -32,6 +33,7 @@ type RouteParams = {
 export default function PaymentScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
+
 
   const {
     origin,
@@ -120,14 +122,16 @@ export default function PaymentScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  function decodeToken(token: string): { email: string } {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return { email: payload.sub  };
-    } catch {
-      throw new Error('Token inválido');
-    }
+function decodeToken(token: string): { email: string } {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    const payload = JSON.parse(decodedPayload);
+    return { email: payload.sub };
+  } catch {
+    throw new Error('Token inválido');
   }
+}
 
   const formatTime = (sec: number) => {
     const min = Math.floor(sec / 60).toString().padStart(2, '0');

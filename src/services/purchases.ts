@@ -5,6 +5,7 @@ const extra = Constants.expoConfig?.extra || {};
 const STRIPE_API_URL = extra.STRIPE_API_URL;
 const STRIPE_SECRET_KEY = extra.STRIPE_SECRET_KEY;
 
+import { Buffer } from 'buffer';
 interface PurchaseRequest {
   usuarioId: number;
   viajeId: number;
@@ -14,7 +15,9 @@ interface PurchaseRequest {
 
 function decodeToken(token: string): { id: number } {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payloadBase64 = token.split('.')[1];
+    const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    const payload = JSON.parse(decoded);
     return { id: payload.id };
   } catch (e) {
     throw new Error('Token inválido');

@@ -12,7 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { getUserByEmail, updateUserProfile } from '../../services/users';
-
+import { Buffer } from 'buffer';
 function formatCI(ci?: string | null): string {
   if (!ci) return '';
   const digits = ci.replace(/\D/g, '');
@@ -49,7 +49,9 @@ export default function ProfileScreen() {
         if (!token) throw new Error('Token no encontrado');
 
         const data = await getUserByEmail(token);
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payloadBase64 = token.split('.')[1];
+        const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+        const payload = JSON.parse(decodedPayload);
         const fullUser = { ...data, id: payload.id, token };
 
         setUser(fullUser);
