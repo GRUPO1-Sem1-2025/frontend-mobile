@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
-import * as IntentLauncher from 'expo-intent-launcher';
+import * as IntentLauncher from 'expo-intent-launcher'; 
 import * as MailComposer from 'expo-mail-composer';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra } from '../../services/purchases';
+import * as Sharing from 'expo-sharing'; // Importación de expo-sharing
 
 function parseQueryParams(url: string): Record<string, string> {
   try {
@@ -79,7 +80,9 @@ export default function PaymentSuccessScreen() {
     const formattedTotal = parseFloat(totalPrice).toFixed(2);
     const hoy = new Date();
     const fechaHoy = hoy.toISOString().split('T')[0]; // "YYYY-MM-DD"
-    const fileName = `ticket-${idCompraIda || 'viaje'}-${fechaHoy}.pdf`;
+    // El fileName ya no necesita ser usado para guardar en una ubicación específica,
+    // pero es útil para MailComposer si lo generamos en un path temporal.
+    // const fileName = `ticket-${idCompraIda || 'viaje'}-${fechaHoy}.pdf`; 
 
     const html = `
       <html>
@@ -113,37 +116,24 @@ export default function PaymentSuccessScreen() {
     `;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html }); // URI temporal del PDF generado
+      // Print.printToFileAsync devuelve una URI al archivo PDF temporal
+      const { uri } = await Print.printToFileAsync({ html }); 
 
-      // **CAMBIO CLAVE AQUÍ:**
-      if (Platform.OS === 'android') {
-        // En Android, usa FileSystem.downloadAsync para mover el archivo a la carpeta de Descargas
-        // y luego IntentLauncher para abrirlo con el visor de PDF predeterminado.
-        const downloadDir = FileSystem.documentDirectory; // Este es un directorio privado de la app
-        const finalPath = downloadDir + fileName; // Path temporal inicial
-
-        // Primero copia el PDF a un lugar accesible si es necesario (Print.printToFileAsync ya lo hace en temp)
-        await FileSystem.copyAsync({ from: uri, to: finalPath });
-
-        // Luego, mover a la carpeta de Descargas pública.
-        // NOTA: Expo no tiene un método directo para "move to public downloads".
-        // La forma más común es abrir con IntentLauncher para que el usuario pueda guardarlo,
-        // o si usas expo-sharing, podrías compartirlo y el usuario elige "Guardar en Descargas".
-        // Para este caso, IntentLauncher abrirá el archivo desde la caché de la app,
-        // y el usuario podrá guardarlo si lo desea.
-        
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: finalPath,
-          flags: 1, // FLAG_ACTIVITY_NEW_TASK
-          type: 'application/pdf',
-        });
-        Alert.alert('PDF generado', `Tu ticket se ha abierto. Puedes guardarlo en tus Descargas desde el visor de PDF.`);
-
-      } else { // iOS
-        // En iOS, el PDF se abre en un visor y el usuario puede elegir guardarlo o compartirlo.
-        await Print.printAsync({ uri }); // Usamos 'uri' directamente, que es el archivo temporal.
-        Alert.alert('PDF generado', `Tu ticket se ha abierto. Puedes guardarlo en tus archivos o compartirlo.`);
+      // Verificar si la función de compartir/abrir está disponible en el dispositivo
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Error', 'La función de compartir/abrir archivos no está disponible en este dispositivo.');
+        return;
       }
+
+      // Usar expo-sharing para abrir el PDF. 
+      // En Android, esto usará un FileProvider para compartir la URI de forma segura.
+      // En iOS, abrirá el "sheet" de compartir/abrir.
+      await Sharing.shareAsync(uri, { 
+        mimeType: 'application/pdf', 
+        UTI: 'public.pdf', // Universal Type Identifier para iOS
+      });
+      
+      Alert.alert('PDF generado', `Tu ticket se ha abierto. Puedes guardarlo en tus Descargas o compartirlo desde el visor de PDF.`);
 
     } catch (error) {
       console.error('Error generando PDF:', error);
@@ -152,9 +142,7 @@ export default function PaymentSuccessScreen() {
   };
 
   const handleSendEmail = async () => {
-    // Para enviar por email, el archivo debe estar en un lugar accesible.
-    // Usaremos el archivo temporal generado por Print.printToFileAsync si lo tenemos,
-    // o lo generamos de nuevo si es necesario.
+    // Regenerar el PDF para adjuntarlo al email
     const tempPdfUri = await (async () => {
         const html = `
           <html>
