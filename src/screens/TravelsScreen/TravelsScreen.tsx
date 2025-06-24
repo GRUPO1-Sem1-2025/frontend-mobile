@@ -56,9 +56,9 @@ export default function TravelsScreens() {
           const storedToken = await AsyncStorage.getItem('userToken');
           if (!storedToken) throw new Error('Token no encontrado');
 
-          setToken(storedToken);
+setToken(storedToken);
 
-          const payloadBase64 = token.split('.')[1];
+const payloadBase64 = storedToken.split('.')[1]; // ✅ usar directamente el valor leído
 const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
 const payload = JSON.parse(decoded);
           const email = payload.sub;

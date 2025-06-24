@@ -2,18 +2,33 @@ import Constants from 'expo-constants';
 import { BASE_URL } from '../context/AuthContext';
 import { Buffer } from 'buffer';
 
-function decodeToken(token: string): { email: string; id: number } {
-  const payloadBase64 = token.split('.')[1];
-  const decoded = Buffer.from(payloadBase64, 'base64').toString('utf-8');
-  const payload = JSON.parse(decoded);
-  return {
-    email: payload.sub,
-    id: payload.id,
-  };
+function decodeToken(token: string): { email: string } {
+  if (!token || typeof token !== 'string') {
+    throw new Error('Token no proporcionado o inválido');
+  }
+
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Token con estructura inválida');
+  }
+
+  try {
+    const payloadBase64 = parts[1];
+    const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    const payload = JSON.parse(decodedPayload);
+
+    if (!payload.sub) {
+      throw new Error('El token no contiene "sub" (email)');
+    }
+
+    return { email: payload.sub };
+  } catch (e) {
+    throw new Error('Token inválido o mal decodificado');
+  }
 }
 
 export async function getUserByEmail(token: string) {
-  const { email, id } = decodeToken(token);
+  const { email } = decodeToken(token);
   const response = await fetch(`${BASE_URL}/usuarios/emails/?email=${encodeURIComponent(email)}`);
   if (!response.ok) throw new Error('Error al obtener usuario');
   const data = await response.json();
