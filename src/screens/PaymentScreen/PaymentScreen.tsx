@@ -10,10 +10,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocalities } from '../../services/locality';
-import { crearSesionStripe } from '../../services/purchases';
+import { crearSesionStripe, getReservasUsuario } from '../../services/purchases';
 import { Trip } from '../../types/trips';
-
+import { FontAwesome } from '@expo/vector-icons';
 type RouteParams = {
   origin: number;
   destination: number;
@@ -49,10 +50,18 @@ export default function PaymentScreen() {
   const [originName, setOriginName] = useState('...');
   const [destinationName, setDestinationName] = useState('...');
   const [loadingLocs, setLoadingLocs] = useState(true);
-  const [remainingSeconds, setRemainingSeconds] = useState(600); // 10 minutos
+  const [remainingSeconds, setRemainingSeconds] = useState(600);
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [finalTotal, setFinalTotal] = useState(0);
+
+  const priceOut = (outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0);
+  const priceRet =
+    tripType === 'roundtrip' && returnTrip && returnSeats
+      ? returnSeats.length * (returnTrip.precioPasaje || 0)
+      : 0;
+  const totalPrice = priceOut + priceRet;
 
   useEffect(() => {
-    console.log('[DEBUG] route.params:', route.params);
     (async () => {
       try {
         const locs = await getLocalities();
@@ -65,6 +74,30 @@ export default function PaymentScreen() {
       } finally {
         setLoadingLocs(false);
       }
+
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (token) {
+          const { email } = decodeToken(token);
+          const reservas = await getReservasUsuario(email);
+
+          const match = reservas.find((r: any) =>
+            r.viajeId === outboundTrip.viajeId &&
+            r.numerosDeAsiento.every((n: number) => outboundSeats.includes(n))
+          );
+
+          if (match && match.descuento > 0) {
+            setDiscountPercent(match.descuento);
+            const discounted = totalPrice * (1 - match.descuento / 100);
+            setFinalTotal(Math.round(discounted));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Error verificando descuento:', e);
+      }
+
+      setFinalTotal(totalPrice); // sin descuento
     })();
   }, []);
 
@@ -87,39 +120,40 @@ export default function PaymentScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  function decodeToken(token: string): { email: string } {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return { email: payload.sub  };
+    } catch {
+      throw new Error('Token inválido');
+    }
+  }
+
   const formatTime = (sec: number) => {
     const min = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${min}:${s}`;
   };
 
-  const priceOut = (outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0);
-  const priceRet =
-    tripType === 'roundtrip' && returnTrip && returnSeats
-      ? returnSeats.length * (returnTrip.precioPasaje || 0)
-      : 0;
-  const totalPrice = priceOut + priceRet;
-
   const handleStripeCheckout = async () => {
     try {
-const extraData = {
-  origin: originName,
-  destination: destinationName,
-  departDate,
-  returnDate: returnDate || '',
-  outboundSeats: outboundSeats.join(','),
-  returnSeats: returnSeats?.join(',') || '',
-  outboundHoraInicio: outboundTrip.horaInicio,
-  outboundHoraFin: outboundTrip.horaFin,
-  returnHoraInicio: returnTrip?.horaInicio || '',
-  returnHoraFin: returnTrip?.horaFin || '',
-  outboundBusId: String(outboundTrip.busId),
-  returnBusId: returnTrip ? String(returnTrip.busId) : '',
-  totalPrice: String(totalPrice),
-};
+      const extraData = {
+        origin: originName,
+        destination: destinationName,
+        departDate,
+        returnDate: returnDate || '',
+        outboundSeats: outboundSeats.join(','),
+        returnSeats: returnSeats?.join(',') || '',
+        outboundHoraInicio: outboundTrip.horaInicio,
+        outboundHoraFin: outboundTrip.horaFin,
+        returnHoraInicio: returnTrip?.horaInicio || '',
+        returnHoraFin: returnTrip?.horaFin || '',
+        outboundBusId: String(outboundTrip.busId),
+        returnBusId: returnTrip ? String(returnTrip.busId) : '',
+        totalPrice: String(finalTotal),
+      };
 
-
-      const url = await crearSesionStripe(totalPrice, idCompraIda, idCompraVuelta, extraData);
+      const url = await crearSesionStripe(finalTotal, idCompraIda, idCompraVuelta, extraData);
       Linking.openURL(url);
     } catch (error: any) {
       console.error(error);
@@ -177,10 +211,22 @@ const extraData = {
         </View>
       )}
 
-      <View style={styles.totalBlock}>
-        <Text style={styles.totalLabel}>Total a Pagar:</Text>
-        <Text style={styles.total}>${totalPrice}</Text>
+<View style={styles.totalBlock}>
+  {discountPercent > 0 && (
+    <View style={styles.discountBox}>
+      <View style={styles.discountRow}>
+        <FontAwesome name="ticket" size={20} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={styles.discountText}>Descuento aplicado</Text>
       </View>
+      <Text style={styles.discountAmount}>
+        -{discountPercent}% (${totalPrice - finalTotal})
+      </Text>
+    </View>
+  )}
+  <Text style={styles.totalLabel}>Total a Pagar:</Text>
+  <Text style={styles.total}>${finalTotal}</Text>
+</View>
+
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
         <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
@@ -229,6 +275,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2c3a',
   },
+  discountRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: 4,
+},
+  discountBox: {
+  backgroundColor: '#f44336',
+  borderRadius:  8,
+  padding: 10,
+  marginBottom: 12,
+},
+discountText: {
+  color: '#fff',
+  fontSize: 16,
+  fontWeight: '600',
+  textAlign: 'center',
+},
+discountAmount: {
+  color: '#fff',
+  fontSize: 20,
+  fontWeight: 'bold',
+  textAlign: 'center',
+  marginTop: 4,
+},
   totalBlock: {
     backgroundColor: '#1f2c3a',
     borderRadius: 12,
@@ -266,7 +337,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 5,
     borderLeftColor: '#f9c94e',
-  },
+  }, 
   alertMessage: {
     fontSize: 14,
     color: '#1f2c3a',

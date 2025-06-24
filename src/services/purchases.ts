@@ -21,6 +21,24 @@ function decodeToken(token: string): { id: number } {
   }
 }
 
+export async function getReservasUsuario(email: string) {
+  console.log('[DEBUG] Obteniendo reservas para el usuario:', email);
+  const url = `https://backend.tecnobus.uy/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    console.error('[DEBUG] Error obteniendo reservas:', response.status);
+    throw new Error('No se pudieron obtener las reservas');
+  }
+
+  return response.json();
+}
+
 export async function reservarPasaje(
   token: string,
   viajeId: number,
