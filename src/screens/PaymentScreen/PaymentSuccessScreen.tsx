@@ -11,7 +11,6 @@ import {
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
-import * as MediaLibrary from 'expo-media-library';
 import * as MailComposer from 'expo-mail-composer';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra } from '../../services/purchases';
@@ -83,59 +82,69 @@ export default function PaymentSuccessScreen() {
     const fileName = `ticket-${idCompraIda || 'viaje'}-${fechaHoy}.pdf`;
 
     const html = `
-    <html>
-      <head><style>
-        body { font-family: sans-serif; padding: 24px; color: #1f2c3a; }
-        h1 { text-align: center; color: green; }
-        .section { border: 1px solid #91d5f4; padding: 16px; border-radius: 8px; margin-top: 20px; }
-        .label { font-weight: bold; }
-        .value { margin-left: 8px; }
-      </style></head>
-      <body>
-        <h1>Resumen de Compra</h1>
-        <div class="section">
-          <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
-          <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
-          <p><span class="label">Fecha Ida:</span><span class="value">${formatFecha(departDate)}</span></p>
-          <p><span class="label">Horario Ida:</span><span class="value">${formatHora(outboundHoraInicio)} a ${formatHora(outboundHoraFin)}</span></p>
-          <p><span class="label">Asientos Ida:</span><span class="value">${outboundSeats}</span></p>
-          ${returnDate
-        ? `
-            <p><span class="label">Fecha Vuelta:</span><span class="value">${formatFecha(returnDate)}</span></p>
-            <p><span class="label">Horario Vuelta:</span><span class="value">${formatHora(returnHoraInicio)} a ${formatHora(returnHoraFin)}</span></p>
-            <p><span class="label">Asientos Vuelta:</span><span class="value">${returnSeats}</span></p>
-          `
-        : ''
-      }
-          <p><span class="label">Total pagado:</span><span class="value">$${formattedTotal}</span></p>
-        </div>
-      </body>
-    </html>
-  `;
+      <html>
+        <head><style>
+          body { font-family: sans-serif; padding: 24px; color: #1f2c3a; }
+          h1 { text-align: center; color: green; }
+          .section { border: 1px solid #91d5f4; padding: 16px; border-radius: 8px; margin-top: 20px; }
+          .label { font-weight: bold; }
+          .value { margin-left: 8px; }
+        </style></head>
+        <body>
+          <h1>Resumen de Compra</h1>
+          <div class="section">
+            <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
+            <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
+            <p><span class="label">Fecha Ida:</span><span class="value">${formatFecha(departDate)}</span></p>
+            <p><span class="label">Horario Ida:</span><span class="value">${formatHora(outboundHoraInicio)} a ${formatHora(outboundHoraFin)}</span></p>
+            <p><span class="label">Asientos Ida:</span><span class="value">${outboundSeats}</span></p>
+            ${returnDate
+              ? `
+              <p><span class="label">Fecha Vuelta:</span><span class="value">${formatFecha(returnDate)}</span></p>
+              <p><span class="label">Horario Vuelta:</span><span class="value">${formatHora(returnHoraInicio)} a ${formatHora(returnHoraFin)}</span></p>
+              <p><span class="label">Asientos Vuelta:</span><span class="value">${returnSeats}</span></p>
+            `
+              : ''
+          }
+            <p><span class="label">Total pagado:</span><span class="value">$${formattedTotal}</span></p>
+          </div>
+        </body>
+      </html>
+    `;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html });
+      const { uri } = await Print.printToFileAsync({ html }); // URI temporal del PDF generado
 
-      const localPath = FileSystem.documentDirectory + fileName;
-      await FileSystem.copyAsync({ from: uri, to: localPath });
-
-      const perm = await MediaLibrary.requestPermissionsAsync();
-      if (perm.status === 'granted') {
-        const asset = await MediaLibrary.createAssetAsync(localPath);
-        await MediaLibrary.createAlbumAsync('Tickets', asset, false);
-      }
-
+      // **CAMBIO CLAVE AQUÍ:**
       if (Platform.OS === 'android') {
+        // En Android, usa FileSystem.downloadAsync para mover el archivo a la carpeta de Descargas
+        // y luego IntentLauncher para abrirlo con el visor de PDF predeterminado.
+        const downloadDir = FileSystem.documentDirectory; // Este es un directorio privado de la app
+        const finalPath = downloadDir + fileName; // Path temporal inicial
+
+        // Primero copia el PDF a un lugar accesible si es necesario (Print.printToFileAsync ya lo hace en temp)
+        await FileSystem.copyAsync({ from: uri, to: finalPath });
+
+        // Luego, mover a la carpeta de Descargas pública.
+        // NOTA: Expo no tiene un método directo para "move to public downloads".
+        // La forma más común es abrir con IntentLauncher para que el usuario pueda guardarlo,
+        // o si usas expo-sharing, podrías compartirlo y el usuario elige "Guardar en Descargas".
+        // Para este caso, IntentLauncher abrirá el archivo desde la caché de la app,
+        // y el usuario podrá guardarlo si lo desea.
+        
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: localPath,
-          flags: 1,
+          data: finalPath,
+          flags: 1, // FLAG_ACTIVITY_NEW_TASK
           type: 'application/pdf',
         });
-      } else {
-        await Print.printAsync({ uri: localPath });
+        Alert.alert('PDF generado', `Tu ticket se ha abierto. Puedes guardarlo en tus Descargas desde el visor de PDF.`);
+
+      } else { // iOS
+        // En iOS, el PDF se abre en un visor y el usuario puede elegir guardarlo o compartirlo.
+        await Print.printAsync({ uri }); // Usamos 'uri' directamente, que es el archivo temporal.
+        Alert.alert('PDF generado', `Tu ticket se ha abierto. Puedes guardarlo en tus archivos o compartirlo.`);
       }
 
-      Alert.alert('PDF guardado', `Tu ticket fue guardado como "${fileName}" en la carpeta Tickets.`);
     } catch (error) {
       console.error('Error generando PDF:', error);
       Alert.alert('Error', 'No se pudo generar o abrir el PDF.');
@@ -143,8 +152,44 @@ export default function PaymentSuccessScreen() {
   };
 
   const handleSendEmail = async () => {
-    const fileName = `ticket-${idCompraIda || 'viaje'}.pdf`;
-    const localPath = FileSystem.documentDirectory + fileName;
+    // Para enviar por email, el archivo debe estar en un lugar accesible.
+    // Usaremos el archivo temporal generado por Print.printToFileAsync si lo tenemos,
+    // o lo generamos de nuevo si es necesario.
+    const tempPdfUri = await (async () => {
+        const html = `
+          <html>
+            <head><style>
+              body { font-family: sans-serif; padding: 24px; color: #1f2c3a; }
+              h1 { text-align: center; color: green; }
+              .section { border: 1px solid #91d5f4; padding: 16px; border-radius: 8px; margin-top: 20px; }
+              .label { font-weight: bold; }
+              .value { margin-left: 8px; }
+            </style></head>
+            <body>
+              <h1>Resumen de Compra</h1>
+              <div class="section">
+                <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
+                <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
+                <p><span class="label">Fecha Ida:</span><span class="value">${formatFecha(departDate)}</span></p>
+                <p><span class="label">Horario Ida:</span><span class="value">${formatHora(outboundHoraInicio)} a ${formatHora(outboundHoraFin)}</span></p>
+                <p><span class="label">Asientos Ida:</span><span class="value">${outboundSeats}</span></p>
+                ${returnDate
+                  ? `
+                  <p><span class="label">Fecha Vuelta:</span><span class="value">${formatFecha(returnDate)}</span></p>
+                  <p><span class="label">Horario Vuelta:</span><span class="value">${formatHora(returnHoraInicio)} a ${formatHora(returnHoraFin)}</span></p>
+                  <p><span class="label">Asientos Vuelta:</span><span class="value">${returnSeats}</span></p>
+                `
+                  : ''
+                }
+                <p><span class="label">Total pagado:</span><span class="value">$${parseFloat(totalPrice).toFixed(2)}</span></p>
+              </div>
+            </body>
+          </html>
+        `;
+        const { uri } = await Print.printToFileAsync({ html });
+        return uri;
+    })();
+
 
     const isAvailable = await MailComposer.isAvailableAsync();
     if (!isAvailable) {
@@ -152,12 +197,17 @@ export default function PaymentSuccessScreen() {
       return;
     }
 
-    await MailComposer.composeAsync({
-      recipients: [],
-      subject: 'Tu ticket de viaje',
-      body: 'Adjunto encontrarás el ticket de tu compra reciente.',
-      attachments: [localPath],
-    });
+    try {
+      await MailComposer.composeAsync({
+        recipients: [],
+        subject: 'Tu ticket de viaje',
+        body: 'Adjunto encontrarás el ticket de tu compra reciente.',
+        attachments: [tempPdfUri],
+      });
+    } catch (error) {
+      console.error('Error al enviar email:', error);
+      Alert.alert('Error', 'No se pudo enviar el correo.');
+    }
   };
 
   const handleGoHome = () => {
