@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "poc-frontend-mobile",
-    "slug": "poc-frontend-mobile",
+    "name": "tecnobus",
+    "slug": "tecnobus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
