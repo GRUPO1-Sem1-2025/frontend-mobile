@@ -7,6 +7,7 @@ import PaymentScreen from '../screens/PaymentScreen/PaymentScreen';
 import PaymentSuccessScreen from '../screens/PaymentScreen/PaymentSuccessScreen';
 import PaymentCancelScreen from '../screens/PaymentScreen/PaymentCancelScreen';
 import SelectLocationScreen from '../screens/LocationScreen/SelectLocationScreen';
+import TravelsScreens from '../screens/TravelsScreen/TravelsScreen';
 import { Trip } from '../types/trips';
 
 export type AppStackParamList = {
@@ -36,6 +37,7 @@ export type AppStackParamList = {
   };
   PaymentSuccess: undefined;
   PaymentCancel: undefined;
+  TravelsScreens: undefined;
   PayPalWebView: { amount: string };
   SelectLocation: {
     localities: { id: number; nombre: string; departamento: string }[];
@@ -77,6 +79,11 @@ export default function AppStack() {
         name="PaymentSuccess"
         component={PaymentSuccessScreen}
         options={{ title: 'Pago Exitoso' }}
+      />
+      <Stack.Screen
+        name="TravelsScreens"
+        component={TravelsScreens}
+        options={{ title: 'Mis Viajes' }}
       />
       <Stack.Screen
         name="PaymentCancel"

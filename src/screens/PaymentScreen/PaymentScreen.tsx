@@ -17,8 +17,8 @@ import { Trip } from '../../types/trips';
 import { FontAwesome } from '@expo/vector-icons';
 
 type RouteParams = {
-  origin: number;
-  destination: number;
+  origin: number | string;
+  destination: number | string;
   tripType: 'oneway' | 'roundtrip';
   departDate: string;
   returnDate?: string;
@@ -55,25 +55,27 @@ export default function PaymentScreen() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [finalTotal, setFinalTotal] = useState(0);
 
-  const priceOut = (outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0);
-  const priceRet =
-    tripType === 'roundtrip' && returnTrip && returnSeats
-      ? returnSeats.length * (returnTrip.precioPasaje || 0)
-      : 0;
-  const totalPrice = priceOut + priceRet;
-
   useEffect(() => {
     (async () => {
       try {
         const locs = await getLocalities();
-        const from = locs.find(l => Number(l.id) === Number(origin));
-        const to = locs.find(l => Number(l.id) === Number(destination));
-        setOriginName(from ? `${from.nombre}, ${from.departamento}` : 'Desconocido');
-        setDestinationName(to ? `${to.nombre}, ${to.departamento}` : 'Desconocido');
+
+        const from =
+          typeof origin === 'number'
+            ? locs.find(l => Number(l.id) === Number(origin))
+            : null;
+
+        const to =
+          typeof destination === 'number'
+            ? locs.find(l => Number(l.id) === Number(destination))
+            : null;
+
+        setOriginName(from ? `${from.nombre}, ${from.departamento}` : String(origin));
+        setDestinationName(to ? `${to.nombre}, ${to.departamento}` : String(destination));
       } catch (e) {
         console.warn('Error cargando localidades', e);
-      } finally {
-        setLoadingLocs(false);
+        setOriginName(String(origin));
+        setDestinationName(String(destination));
       }
 
       try {
@@ -87,18 +89,27 @@ export default function PaymentScreen() {
             r.numerosDeAsiento.every((n: number) => outboundSeats.includes(n))
           );
 
+          const priceOut = (outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0);
+          const priceRet =
+            tripType === 'roundtrip' && returnTrip && returnSeats
+              ? returnSeats.length * (returnTrip.precioPasaje || 0)
+              : 0;
+          const totalPrice = priceOut + priceRet;
+
           if (match && match.descuento > 0) {
             setDiscountPercent(match.descuento);
             const discounted = totalPrice * (1 - match.descuento / 100);
             setFinalTotal(Math.round(discounted));
             return;
           }
+
+          setFinalTotal(totalPrice);
         }
       } catch (e) {
         console.warn('Error verificando descuento:', e);
+      } finally {
+        setLoadingLocs(false);
       }
-
-      setFinalTotal(totalPrice); // sin descuento
     })();
   }, []);
 
@@ -124,7 +135,6 @@ export default function PaymentScreen() {
   function decodeToken(token: string): { email: string } {
     try {
       const payloadBase64 = token.split('.')[1];
-      // Use atob for Base64 decoding
       const decodedPayload = atob(payloadBase64);
       const payload = JSON.parse(decodedPayload);
       return { email: payload.sub };
@@ -189,7 +199,9 @@ export default function PaymentScreen() {
         <Text style={styles.label}>Origen → Destino:</Text>
         <Text style={styles.value}>{originName} → {destinationName}</Text>
         <Text style={styles.label}>Fecha Ida:</Text>
-        <Text style={styles.value}>{new Date(departDate).toLocaleDateString()}</Text>
+        <Text style={styles.value}>
+          {departDate.split('-').reverse().join('/')}
+        </Text>
         <Text style={styles.label}>Ómnibus Ida:</Text>
         <Text style={styles.value}>
           {outboundTrip.busId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}
@@ -197,23 +209,8 @@ export default function PaymentScreen() {
         <Text style={styles.label}>Asientos Ida:</Text>
         <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
         <Text style={styles.label}>Precio Ida:</Text>
-        <Text style={styles.value}>${priceOut}</Text>
+        <Text style={styles.value}>${(outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0)}</Text>
       </View>
-
-      {tripType === 'roundtrip' && returnTrip && returnSeats && (
-        <View style={styles.block}>
-          <Text style={styles.label}>Fecha Vuelta:</Text>
-          <Text style={styles.value}>{new Date(returnDate || '').toLocaleDateString()}</Text>
-          <Text style={styles.label}>Ómnibus Vuelta:</Text>
-          <Text style={styles.value}>
-            {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
-          </Text>
-          <Text style={styles.label}>Asientos Vuelta:</Text>
-          <Text style={styles.value}>{returnSeats.join(', ')}</Text>
-          <Text style={styles.label}>Precio Vuelta:</Text>
-          <Text style={styles.value}>${priceRet}</Text>
-        </View>
-      )}
 
       <View style={styles.totalBlock}>
         {discountPercent > 0 && (
@@ -223,7 +220,25 @@ export default function PaymentScreen() {
               <Text style={styles.discountText}>Descuento aplicado</Text>
             </View>
             <Text style={styles.discountAmount}>
-              -{discountPercent}% (${totalPrice - finalTotal})
+              -{discountPercent}%
+            </Text>
+          </View>
+        )}
+        {tripType === 'roundtrip' && returnTrip && returnSeats && (
+          <View style={styles.block}>
+            <Text style={styles.label}>Fecha Vuelta:</Text>
+            <Text style={styles.value}>
+              {returnDate?.split('-').reverse().join('/')}
+            </Text>
+            <Text style={styles.label}>Ómnibus Vuelta:</Text>
+            <Text style={styles.value}>
+              {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
+            </Text>
+            <Text style={styles.label}>Asientos Vuelta:</Text>
+            <Text style={styles.value}>{returnSeats.join(', ')}</Text>
+            <Text style={styles.label}>Precio Vuelta:</Text>
+            <Text style={styles.value}>
+              ${(returnSeats?.length || 0) * (returnTrip?.precioPasaje || 0)}
             </Text>
           </View>
         )}

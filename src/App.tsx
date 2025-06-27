@@ -11,11 +11,15 @@ import PaymentSuccessScreen from './screens/PaymentScreen/PaymentSuccessScreen';
 import PaymentCancelScreen from './screens/PaymentScreen/PaymentCancelScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import TravelsScreens from './screens/TravelsScreen/TravelsScreen';
+import PaymentScreen from './screens/PaymentScreen/PaymentScreen';
 // Definir el stack principal
 type RootStackParamList = {
   AppDrawer: undefined;
   PaymentSuccess: undefined;
   PaymentCancel: undefined;
+  PaymentScreen: undefined;
+  TravelsScreens: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -80,6 +84,12 @@ function RootNavigator() {
             <Stack.Screen name="AppDrawer" component={AppStack} />
             <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
             <Stack.Screen name="PaymentCancel" component={PaymentCancelScreen} />
+            <Stack.Screen name="TravelsScreens" component={TravelsScreens} />
+            <Stack.Screen
+              name="PaymentScreen"
+              component={PaymentScreen}
+              options={{ headerShown: true, title: 'Resumen de Compra' }}
+            />
           </>
         ) : (
           <Stack.Screen name="AppDrawer" component={AuthStack} />
