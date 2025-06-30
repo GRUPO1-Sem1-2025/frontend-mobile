@@ -1,3 +1,5 @@
+// src/screens/PaymentScreen.tsx
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -28,6 +30,8 @@ type RouteParams = {
   returnSeats?: number[];
   idCompraIda: number;
   idCompraVuelta: number | null;
+  isTotalPrice?: boolean;      // si el precio total ya viene calculado
+  totalPrice?: number;         // precio total ya con descuento
 };
 
 export default function PaymentScreen() {
@@ -46,6 +50,8 @@ export default function PaymentScreen() {
     returnSeats,
     idCompraIda,
     idCompraVuelta,
+    isTotalPrice = false,
+    totalPrice = 0,
   } = route.params as RouteParams;
 
   const [originName, setOriginName] = useState('...');
@@ -55,21 +61,46 @@ export default function PaymentScreen() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [finalTotal, setFinalTotal] = useState(0);
 
+  const arraysEqual = (a: number[], b: number[]) => {
+    const sortedA = [...a].sort((x, y) => x - y);
+    const sortedB = [...b].sort((x, y) => x - y);
+    return sortedA.length === sortedB.length && sortedA.every((n, i) => n === sortedB[i]);
+  };
+
+  const calculateTotal = () => {
+    if (isTotalPrice) {
+      // ya viene total con descuento aplicado
+      setFinalTotal(Math.round(totalPrice));
+    } else {
+      // calcular desde precio unitario * cantidad y aplicar descuento
+      const priceOut =
+        (outboundSeats?.length || 0) * (outboundTrip.precioPasaje || 0);
+      const priceRet =
+        tripType === 'roundtrip' && returnTrip && returnSeats
+          ? returnSeats.length * (returnTrip.precioPasaje || 0)
+          : 0;
+      const sum = priceOut + priceRet;
+      if (discountPercent > 0) {
+        const discounted = sum * (1 - discountPercent / 100);
+        setFinalTotal(Math.round(discounted));
+      } else {
+        setFinalTotal(sum);
+      }
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const locs = await getLocalities();
-
         const from =
           typeof origin === 'number'
             ? locs.find(l => Number(l.id) === Number(origin))
             : null;
-
         const to =
           typeof destination === 'number'
             ? locs.find(l => Number(l.id) === Number(destination))
             : null;
-
         setOriginName(from ? `${from.nombre}, ${from.departamento}` : String(origin));
         setDestinationName(to ? `${to.nombre}, ${to.departamento}` : String(destination));
       } catch (e) {
@@ -83,27 +114,13 @@ export default function PaymentScreen() {
         if (token) {
           const { email } = decodeToken(token);
           const reservas = await getReservasUsuario(email);
-
           const match = reservas.find((r: any) =>
             r.viajeId === outboundTrip.viajeId &&
-            r.numerosDeAsiento.every((n: number) => outboundSeats.includes(n))
+            arraysEqual(r.numerosDeAsiento, outboundSeats)
           );
-
-          const priceOut = (outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0);
-          const priceRet =
-            tripType === 'roundtrip' && returnTrip && returnSeats
-              ? returnSeats.length * (returnTrip.precioPasaje || 0)
-              : 0;
-          const totalPrice = priceOut + priceRet;
-
           if (match && match.descuento > 0) {
             setDiscountPercent(match.descuento);
-            const discounted = totalPrice * (1 - match.descuento / 100);
-            setFinalTotal(Math.round(discounted));
-            return;
           }
-
-          setFinalTotal(totalPrice);
         }
       } catch (e) {
         console.warn('Error verificando descuento:', e);
@@ -112,6 +129,17 @@ export default function PaymentScreen() {
       }
     })();
   }, []);
+
+  useEffect(calculateTotal, [
+    outboundSeats,
+    returnSeats,
+    outboundTrip,
+    returnTrip,
+    tripType,
+    discountPercent,
+    isTotalPrice,
+    totalPrice,
+  ]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -128,7 +156,6 @@ export default function PaymentScreen() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -144,7 +171,9 @@ export default function PaymentScreen() {
   }
 
   const formatTime = (sec: number) => {
-    const min = Math.floor(sec / 60).toString().padStart(2, '0');
+    const min = Math.floor(sec / 60)
+      .toString()
+      .padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${min}:${s}`;
   };
@@ -166,7 +195,6 @@ export default function PaymentScreen() {
         returnBusId: returnTrip ? String(returnTrip.busId) : '',
         totalPrice: String(finalTotal),
       };
-
       const url = await crearSesionStripe(finalTotal, idCompraIda, idCompraVuelta, extraData);
       Linking.openURL(url);
     } catch (error: any) {
@@ -183,6 +211,20 @@ export default function PaymentScreen() {
     );
   }
 
+  // calcular precio unitario y subtotal según si ya viene con descuento
+  const unitOut = isTotalPrice
+    ? Math.round(outboundTrip.precioPasaje * (1 - discountPercent / 100))
+    : outboundTrip.precioPasaje;
+  const priceOut = unitOut * outboundSeats.length;
+
+  const unitRet =
+    tripType === 'roundtrip' && returnTrip && returnSeats
+      ? isTotalPrice
+        ? Math.round(returnTrip.precioPasaje * (1 - discountPercent / 100))
+        : returnTrip.precioPasaje
+      : 0;
+  const priceRet = unitRet * (returnSeats?.length || 0);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Resumen de Compra</Text>
@@ -197,7 +239,9 @@ export default function PaymentScreen() {
 
       <View style={styles.block}>
         <Text style={styles.label}>Origen → Destino:</Text>
-        <Text style={styles.value}>{originName} → {destinationName}</Text>
+        <Text style={styles.value}>
+          {originName} → {destinationName}
+        </Text>
         <Text style={styles.label}>Fecha Ida:</Text>
         <Text style={styles.value}>
           {departDate.split('-').reverse().join('/')}
@@ -208,45 +252,54 @@ export default function PaymentScreen() {
         </Text>
         <Text style={styles.label}>Asientos Ida:</Text>
         <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
-        <Text style={styles.label}>Precio Ida:</Text>
-        <Text style={styles.value}>${(outboundSeats?.length || 0) * (outboundTrip?.precioPasaje || 0)}</Text>
+        <Text style={styles.label}>Precio por pasaje:</Text>
+        <Text style={styles.value}>${unitOut}</Text>
+        <Text style={styles.label}>Subtotal Ida:</Text>
+        <Text style={styles.value}>${priceOut}</Text>
       </View>
 
+      {tripType === 'roundtrip' && returnTrip && returnSeats && (
+        <View style={styles.block}>
+          <Text style={styles.label}>Fecha Vuelta:</Text>
+          <Text style={styles.value}>
+            {returnDate?.split('-').reverse().join('/')}
+          </Text>
+          <Text style={styles.label}>Ómnibus Vuelta:</Text>
+          <Text style={styles.value}>
+            {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
+          </Text>
+          <Text style={styles.label}>Asientos Vuelta:</Text>
+          <Text style={styles.value}>{returnSeats.join(', ')}</Text>
+          <Text style={styles.label}>Precio por pasaje:</Text>
+          <Text style={styles.value}>${unitRet}</Text>
+          <Text style={styles.label}>Subtotal Vuelta:</Text>
+          <Text style={styles.value}>${priceRet}</Text>
+        </View>
+      )}
+
       <View style={styles.totalBlock}>
-        {discountPercent > 0 && (
+        {discountPercent > 0 && !isTotalPrice && (
           <View style={styles.discountBox}>
             <View style={styles.discountRow}>
-              <FontAwesome name="ticket" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <FontAwesome
+                name="ticket"
+                size={20}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
               <Text style={styles.discountText}>Descuento aplicado</Text>
             </View>
-            <Text style={styles.discountAmount}>
-              -{discountPercent}%
-            </Text>
-          </View>
-        )}
-        {tripType === 'roundtrip' && returnTrip && returnSeats && (
-          <View style={styles.block}>
-            <Text style={styles.label}>Fecha Vuelta:</Text>
-            <Text style={styles.value}>
-              {returnDate?.split('-').reverse().join('/')}
-            </Text>
-            <Text style={styles.label}>Ómnibus Vuelta:</Text>
-            <Text style={styles.value}>
-              {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
-            </Text>
-            <Text style={styles.label}>Asientos Vuelta:</Text>
-            <Text style={styles.value}>{returnSeats.join(', ')}</Text>
-            <Text style={styles.label}>Precio Vuelta:</Text>
-            <Text style={styles.value}>
-              ${(returnSeats?.length || 0) * (returnTrip?.precioPasaje || 0)}
-            </Text>
+            <Text style={styles.discountAmount}>-{discountPercent}%</Text>
           </View>
         )}
         <Text style={styles.totalLabel}>Total a Pagar:</Text>
         <Text style={styles.total}>${finalTotal}</Text>
       </View>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={handleStripeCheckout}
+      >
         <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
       </TouchableOpacity>
     </ScrollView>

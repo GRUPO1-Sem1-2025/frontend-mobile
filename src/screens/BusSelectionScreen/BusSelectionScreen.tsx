@@ -116,9 +116,21 @@ export default function BusSelectionScreen() {
 
   const toggleSeat = (num: number, outbound: boolean) => {
     if (outbound) {
-      setSelOut(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
+      if (selOut.includes(num)) {
+        setSelOut(prev => prev.filter(x => x !== num));
+      } else if (selOut.length >= 5) {
+        Alert.alert('Límite alcanzado', 'Solo puede seleccionar hasta 5 asientos para la ida.');
+      } else {
+        setSelOut(prev => [...prev, num]);
+      }
     } else {
-      setSelRet(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num]);
+      if (selRet.includes(num)) {
+        setSelRet(prev => prev.filter(x => x !== num));
+      } else if (selRet.length >= 5) {
+        Alert.alert('Límite alcanzado', 'Solo puede seleccionar hasta 5 asientos para la vuelta.');
+      } else {
+        setSelRet(prev => [...prev, num]);
+      }
     }
   };
 
@@ -148,8 +160,9 @@ export default function BusSelectionScreen() {
     try {
       setReserving(true);
       const reservaIda = await reservarPasaje(token, viajeId, selOut);
-const idCompraIda = reservaIda.idCompra;
-let idCompraVuelta = null;
+      const idCompraIda = reservaIda.idCompra;
+      let idCompraVuelta = null;
+
       if (tripType === 'roundtrip' && returnViajeId) {
         const reservaVuelta = await reservarPasaje(token, returnViajeId, selRet);
         idCompraVuelta = reservaVuelta.idCompra;
@@ -205,25 +218,31 @@ let idCompraVuelta = null;
       {busOut && (
         <>
           <Text style={styles.sectionTitle}>Asientos Ida</Text>
+          <Text style={styles.countText}>{selOut.length}/5 seleccionados</Text>
           {matrixOut.map((row, ri) => (
             <View key={`out-row-${ri}`} style={styles.row}>
-              {row.map((seat, ci) => seat ? (
-                <TouchableOpacity
-                  key={`out-${seat.number}`}
-                  style={[
-                    styles.seat,
-                    seat.available ? styles.seatAvailable : styles.seatUnavailable,
-                    selOut.includes(seat.number) && styles.seatSelected,
-                    ci === 1 && styles.aisle,
-                  ]}
-                  disabled={!seat.available}
-                  onPress={() => toggleSeat(seat.number, true)}
-                >
-                  <Text style={styles.seatText}>{seat.number}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View key={`out-empty-${ri}-${ci}`} style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]} />
-              ))}
+              {row.map((seat, ci) =>
+                seat ? (
+                  <TouchableOpacity
+                    key={`out-${seat.number}`}
+                    style={[
+                      styles.seat,
+                      seat.available ? styles.seatAvailable : styles.seatUnavailable,
+                      selOut.includes(seat.number) && styles.seatSelected,
+                      ci === 1 && styles.aisle,
+                    ]}
+                    disabled={!seat.available}
+                    onPress={() => toggleSeat(seat.number, true)}
+                  >
+                    <Text style={styles.seatText}>{seat.number}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    key={`out-empty-${ri}-${ci}`}
+                    style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]}
+                  />
+                )
+              )}
             </View>
           ))}
         </>
@@ -232,25 +251,31 @@ let idCompraVuelta = null;
       {matrixRet.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Asientos Vuelta</Text>
+          <Text style={styles.countText}>{selRet.length}/5 seleccionados</Text>
           {matrixRet.map((row, ri) => (
             <View key={`ret-row-${ri}`} style={styles.row}>
-              {row.map((seat, ci) => seat ? (
-                <TouchableOpacity
-                  key={`ret-${seat.number}`}
-                  style={[
-                    styles.seat,
-                    seat.available ? styles.seatAvailable : styles.seatUnavailable,
-                    selRet.includes(seat.number) && styles.seatSelected,
-                    ci === 1 && styles.aisle,
-                  ]}
-                  disabled={!seat.available}
-                  onPress={() => toggleSeat(seat.number, false)}
-                >
-                  <Text style={styles.seatText}>{seat.number}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View key={`ret-empty-${ri}-${ci}`} style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]} />
-              ))}
+              {row.map((seat, ci) =>
+                seat ? (
+                  <TouchableOpacity
+                    key={`ret-${seat.number}`}
+                    style={[
+                      styles.seat,
+                      seat.available ? styles.seatAvailable : styles.seatUnavailable,
+                      selRet.includes(seat.number) && styles.seatSelected,
+                      ci === 1 && styles.aisle,
+                    ]}
+                    disabled={!seat.available}
+                    onPress={() => toggleSeat(seat.number, false)}
+                  >
+                    <Text style={styles.seatText}>{seat.number}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    key={`ret-empty-${ri}-${ci}`}
+                    style={[styles.seat, styles.seatEmpty, ci === 1 && styles.aisle]}
+                  />
+                )
+              )}
             </View>
           ))}
         </>
@@ -271,7 +296,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: colors.skyBlue, alignItems: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.skyBlue },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: colors.darkBlue },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8, color: colors.darkBlue },
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 4, color: colors.darkBlue },
+  countText: { fontSize: 14, color: colors.darkBlue, marginBottom: 8 },
   row: { flexDirection: 'row', marginBottom: 8, justifyContent: 'center' },
   seat: { width: 40, height: 40, borderWidth: 1, borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginHorizontal: 4 },
   seatAvailable: { backgroundColor: colors.gray, borderColor: colors.midBlue },

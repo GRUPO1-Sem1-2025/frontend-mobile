@@ -146,6 +146,8 @@ export default function TravelsScreens() {
       outboundSeats: reserva.numerosDeAsiento,
       idCompraIda: reserva.compraId,
       idCompraVuelta: null,
+      isTotalPrice: true, // <- NUEVO
+       totalPrice: detalle.precio,
     });
   };
 
