@@ -29,6 +29,15 @@ const colors = {
   midBlue: '#91d5f4',
 };
 
+const toISODate = (date: Date) => {
+  const safeDate = new Date(date);
+  safeDate.setHours(12, 0, 0, 0); // Evita el corrimiento por zona horaria
+  const y = safeDate.getFullYear();
+  const m = (safeDate.getMonth() + 1).toString().padStart(2, '0');
+  const d = safeDate.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { token } = useContext(AuthContext);
@@ -42,8 +51,8 @@ export default function HomeScreen() {
   const [origin, setOrigin] = useState<number>();
   const [destination, setDestination] = useState<number>();
   const [tripType, setTripType] = useState<'oneway' | 'roundtrip'>('oneway');
-  const [departDate, setDepartDate] = useState(new Date());
-  const [returnDate, setReturnDate] = useState(new Date());
+  const [departDate, setDepartDate] = useState<Date>(() => new Date());
+  const [returnDate, setReturnDate] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState<'depart' | 'return' | null>(null);
 
   const loadLocalities = async () => {
@@ -81,12 +90,26 @@ export default function HomeScreen() {
       Alert.alert('Error', 'La fecha de regreso no puede ser menor a la de salida.');
       return;
     }
+
+    const isoDepart = toISODate(departDate);
+    const isoReturn = tripType === 'roundtrip' ? toISODate(returnDate) : undefined;
+
+    console.log('[DEBUG] Fecha seleccionada (departDate):', departDate);
+    console.log('[DEBUG] departDate.toISOString():', departDate.toISOString());
+    console.log('[DEBUG] departDate toISODate():', isoDepart);
+
+    if (tripType === 'roundtrip') {
+      console.log('[DEBUG] Fecha regreso (returnDate):', returnDate);
+      console.log('[DEBUG] returnDate.toISOString():', returnDate.toISOString());
+      console.log('[DEBUG] returnDate toISODate():', isoReturn);
+    }
+
     navigation.navigate('AvailableTrips', {
       origin,
       destination,
       tripType,
-      departDate,
-      returnDate: tripType === 'roundtrip' ? returnDate : undefined,
+      departDate: isoDepart,
+      returnDate: isoReturn,
     });
   };
 
@@ -95,12 +118,21 @@ export default function HomeScreen() {
     return locality ? `${locality.nombre}, ${locality.departamento}` : '— selecciona —';
   };
 
-  const handleDateChange = (_: any, selectedDate?: Date) => {
-    if (!selectedDate) return;
-    if (showDatePicker === 'depart') setDepartDate(selectedDate);
-    if (showDatePicker === 'return') setReturnDate(selectedDate);
-    setShowDatePicker(null);
-  };
+const handleDateChange = (_: any, selectedDate?: Date) => {
+  if (!selectedDate) return;
+
+  // Asegurar hora al mediodía para evitar desfase UTC
+  const fixedDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+    12, 0, 0
+  );
+
+  if (showDatePicker === 'depart') setDepartDate(fixedDate);
+  if (showDatePicker === 'return') setReturnDate(fixedDate);
+  setShowDatePicker(null);
+};
 
   const renderDatePicker = () => {
     const currentVal = showDatePicker === 'return' ? returnDate : departDate;

@@ -147,7 +147,8 @@ export default function TravelsScreens() {
       idCompraIda: reserva.compraId,
       idCompraVuelta: null,
       isTotalPrice: true, // <- NUEVO
-       totalPrice: detalle.precio,
+      totalPrice: detalle.precio,
+      discountPercent: detalle.descuento ?? 0, // <--- NUEVO
     });
   };
 
@@ -220,7 +221,9 @@ export default function TravelsScreens() {
                   <>
                     <Text style={styles.cardText}>Origen: {detalle.localidadOrigenNombre}</Text>
                     <Text style={styles.cardText}>Destino: {detalle.localidadDestinoNombre}</Text>
-                    <Text style={styles.cardText}>Fecha: {detalle.fechaInicio}</Text>
+                    <Text style={styles.cardText}>
+                      Fecha: {new Date(detalle.fechaInicio + 'T00:00:00').toLocaleDateString()}
+                    </Text>
                     <Text style={styles.cardText}>
                       Horario: {detalle.horaInicio} - {detalle.horaFin}
                     </Text>
@@ -255,7 +258,9 @@ export default function TravelsScreens() {
                   <>
                     <Text style={styles.cardText}>Origen: {detalle.localidadOrigenNombre}</Text>
                     <Text style={styles.cardText}>Destino: {detalle.localidadDestinoNombre}</Text>
-                    <Text style={styles.cardText}>Fecha: {detalle.fechaInicio}</Text>
+<Text style={styles.cardText}>
+  Fecha: {detalle.fechaInicio.split('-').reverse().join('/')}
+</Text>
                     <Text style={styles.cardText}>
                       Horario: {detalle.horaInicio} - {detalle.horaFin}
                     </Text>

@@ -29,8 +29,8 @@ type RouteParams = {
   origin: number;
   destination: number;
   tripType: 'oneway' | 'roundtrip';
-  departDate: Date;
-  returnDate?: Date;
+  departDate: string;
+  returnDate?: string;
 };
 
 export default function AvailableTripsScreen() {
@@ -45,34 +45,43 @@ export default function AvailableTripsScreen() {
   const [selectedReturnTrip, setSelectedReturnTrip] = useState<Trip | null>(null);
   const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const out = await getAvailableTrips(
-          origin,
+const [yyyy, mm, dd] = departDate.split('-').map(Number);
+const parsedDepartDate = new Date(yyyy, mm - 1, dd, 12); // ✔️ Interpreta local al mediodía
+const parsedReturnDate = returnDate
+  ? (() => {
+      const [ry, rm, rd] = returnDate.split('-').map(Number);
+      return new Date(ry, rm - 1, rd, 12);
+    })()
+  : undefined;
+
+useEffect(() => {
+  (async () => {
+    setLoading(true);
+    try {
+      const out = await getAvailableTrips(
+        origin,
+        destination,
+        parsedDepartDate,
+        'oneway'
+      );
+      setOutboundTrips(out);
+
+      if (tripType === 'roundtrip' && parsedReturnDate) {
+        const ret = await getAvailableTrips(
           destination,
-          departDate,
+          origin,
+          parsedReturnDate,
           'oneway'
         );
-        setOutboundTrips(out);
-
-        if (tripType === 'roundtrip' && returnDate) {
-          const ret = await getAvailableTrips(
-            destination,
-            origin,
-            returnDate,
-            'oneway'
-          );
-          setReturnTrips(ret);
-        }
-      } catch (e) {
-        Alert.alert('Error', (e as Error).message);
-      } finally {
-        setLoading(false);
+        setReturnTrips(ret);
       }
-    })();
-  }, [origin, destination, departDate, tripType, returnDate]);
+    } catch (e) {
+      Alert.alert('Error', (e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, [origin, destination, departDate, tripType, returnDate]);
 
   const canContinue =
     selectedOutboundTrip !== null &&
@@ -194,8 +203,8 @@ export default function AvailableTripsScreen() {
                 returnTrip: selectedReturnTrip,
                 origin,
                 destination,
-                departDate: departDate.toISOString(),
-                returnDate: returnDate?.toISOString() ?? null,
+                departDate: departDate,
+                returnDate: returnDate ?? null,
               })
             }
             disabled={!canContinue}

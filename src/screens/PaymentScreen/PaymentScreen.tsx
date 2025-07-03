@@ -1,5 +1,3 @@
-// src/screens/PaymentScreen.tsx
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -30,8 +28,9 @@ type RouteParams = {
   returnSeats?: number[];
   idCompraIda: number;
   idCompraVuelta: number | null;
-  isTotalPrice?: boolean;      // si el precio total ya viene calculado
-  totalPrice?: number;         // precio total ya con descuento
+  isTotalPrice?: boolean;
+  totalPrice?: number;
+  discountPercent?: number;
 };
 
 export default function PaymentScreen() {
@@ -52,178 +51,147 @@ export default function PaymentScreen() {
     idCompraVuelta,
     isTotalPrice = false,
     totalPrice = 0,
+    discountPercent: initialDiscountPercent = 0,
   } = route.params as RouteParams;
 
   const [originName, setOriginName] = useState('...');
   const [destinationName, setDestinationName] = useState('...');
   const [loadingLocs, setLoadingLocs] = useState(true);
-  const [remainingSeconds, setRemainingSeconds] = useState(600);
-  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent);
   const [finalTotal, setFinalTotal] = useState(0);
 
-  const arraysEqual = (a: number[], b: number[]) => {
-    const sortedA = [...a].sort((x, y) => x - y);
-    const sortedB = [...b].sort((x, y) => x - y);
-    return sortedA.length === sortedB.length && sortedA.every((n, i) => n === sortedB[i]);
-  };
+  const outCount = outboundSeats.length;
+  const retCount = returnSeats?.length || 0;
 
-  const calculateTotal = () => {
-    if (isTotalPrice) {
-      // ya viene total con descuento aplicado
-      setFinalTotal(Math.round(totalPrice));
-    } else {
-      // calcular desde precio unitario * cantidad y aplicar descuento
-      const priceOut =
-        (outboundSeats?.length || 0) * (outboundTrip.precioPasaje || 0);
-      const priceRet =
-        tripType === 'roundtrip' && returnTrip && returnSeats
-          ? returnSeats.length * (returnTrip.precioPasaje || 0)
-          : 0;
-      const sum = priceOut + priceRet;
-      if (discountPercent > 0) {
-        const discounted = sum * (1 - discountPercent / 100);
-        setFinalTotal(Math.round(discounted));
-      } else {
-        setFinalTotal(sum);
-      }
-    }
-  };
+  let priceOutOriginal = outboundTrip.precioPasaje;
+  let priceOutFinal = priceOutOriginal;
+
+  let priceRetOriginal = returnTrip?.precioPasaje || 0;
+  let priceRetFinal = priceRetOriginal;
 
   useEffect(() => {
     (async () => {
       try {
         const locs = await getLocalities();
-        const from =
-          typeof origin === 'number'
-            ? locs.find(l => Number(l.id) === Number(origin))
-            : null;
-        const to =
-          typeof destination === 'number'
-            ? locs.find(l => Number(l.id) === Number(destination))
-            : null;
+        const from = typeof origin === 'number' ? locs.find(l => Number(l.id) === Number(origin)) : null;
+        const to = typeof destination === 'number' ? locs.find(l => Number(l.id) === Number(destination)) : null;
         setOriginName(from ? `${from.nombre}, ${from.departamento}` : String(origin));
         setDestinationName(to ? `${to.nombre}, ${to.departamento}` : String(destination));
       } catch (e) {
-        console.warn('Error cargando localidades', e);
         setOriginName(String(origin));
         setDestinationName(String(destination));
       }
 
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (token) {
-          const { email } = decodeToken(token);
-          const reservas = await getReservasUsuario(email);
-          const match = reservas.find((r: any) =>
-            r.viajeId === outboundTrip.viajeId &&
-            arraysEqual(r.numerosDeAsiento, outboundSeats)
-          );
-          if (match && match.descuento > 0) {
-            setDiscountPercent(match.descuento);
+      if (!isTotalPrice) {
+        try {
+          const token = await AsyncStorage.getItem('userToken');
+          if (token) {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const email = payload.sub;
+            const reservas = await getReservasUsuario(email);
+            const match = reservas.find((r: any) =>
+              r.viajeId === outboundTrip.viajeId && JSON.stringify(r.numerosDeAsiento.sort()) === JSON.stringify(outboundSeats.sort())
+            );
+            if (match?.descuento) {
+              setDiscountPercent(match.descuento);
+            }
           }
+        } catch (e) {
+          console.warn('Error verificando descuento:', e);
         }
-      } catch (e) {
-        console.warn('Error verificando descuento:', e);
-      } finally {
-        setLoadingLocs(false);
       }
+
+      setLoadingLocs(false);
     })();
   }, []);
 
-  useEffect(calculateTotal, [
-    outboundSeats,
-    returnSeats,
-    outboundTrip,
-    returnTrip,
-    tripType,
-    discountPercent,
-    isTotalPrice,
-    totalPrice,
-  ]);
-
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingSeconds(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          Alert.alert(
-            'Tiempo caducado',
-            'Su reserva ha expirado. Debe volver a seleccionar los asientos y realizar la compra nuevamente.',
-            [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
-          );
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    const totalSinDescuento =
+      outboundTrip.precioPasaje * outCount +
+      (returnTrip?.precioPasaje || 0) * retCount;
 
-  function decodeToken(token: string): { email: string } {
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = atob(payloadBase64);
-      const payload = JSON.parse(decodedPayload);
-      return { email: payload.sub };
-    } catch {
-      throw new Error('Token inválido');
+    if (isTotalPrice) {
+      setFinalTotal(Math.round(totalPrice));
+    } else {
+      const conDescuento = discountPercent > 0
+        ? totalSinDescuento * (1 - discountPercent / 100)
+        : totalSinDescuento;
+      setFinalTotal(Math.round(conDescuento));
+    }
+  }, [discountPercent, outboundTrip, returnTrip, totalPrice]);
+
+  // aplicar lógicas de precios dependiendo del origen
+  if (isTotalPrice) {
+    const unit = totalPrice / (outCount + retCount || 1);
+    priceOutFinal = Math.round(unit);
+    priceOutOriginal = discountPercent > 0
+      ? Math.round(priceOutFinal / (1 - discountPercent / 100))
+      : priceOutFinal;
+
+    if (retCount > 0) {
+      priceRetFinal = priceOutFinal;
+      priceRetOriginal = discountPercent > 0
+        ? Math.round(priceRetFinal / (1 - discountPercent / 100))
+        : priceRetFinal;
+    }
+  } else {
+    priceOutOriginal = outboundTrip.precioPasaje;
+    priceOutFinal = discountPercent > 0
+      ? Math.round(priceOutOriginal * (1 - discountPercent / 100))
+      : priceOutOriginal;
+
+    if (retCount > 0 && returnTrip) {
+      priceRetOriginal = returnTrip.precioPasaje;
+      priceRetFinal = discountPercent > 0
+        ? Math.round(priceRetOriginal * (1 - discountPercent / 100))
+        : priceRetOriginal;
     }
   }
 
-  const formatTime = (sec: number) => {
-    const min = Math.floor(sec / 60)
-      .toString()
-      .padStart(2, '0');
-    const s = (sec % 60).toString().padStart(2, '0');
-    return `${min}:${s}`;
+  const subtotalOut = priceOutFinal * outCount;
+  const subtotalOutOriginal = priceOutOriginal * outCount;
+  const subtotalRet = priceRetFinal * retCount;
+  const subtotalRetOriginal = priceRetOriginal * retCount;
+
+  const formatWithDiscount = (final: number, original: number) => {
+    if (discountPercent > 0 && original > final) {
+      return (
+        <Text style={styles.value}>
+          ${final}{' '}
+          <Text style={{ color: '#d84315' }}>← ${original}</Text>
+        </Text>
+      );
+    }
+    return <Text style={styles.value}>${final}</Text>;
   };
 
+const formatDate = (str: string) => {
+  const [year, month, day] = str.split('-');
+  return `${day}/${month}/${year}`;
+};
   const handleStripeCheckout = async () => {
+    const data = {
+      origin: originName,
+      destination: destinationName,
+      departDate,
+      returnDate: returnDate || '',
+      outboundSeats: outboundSeats.join(','),
+      returnSeats: returnSeats?.join(',') || '',
+      outboundHoraInicio: outboundTrip.horaInicio,
+      outboundHoraFin: outboundTrip.horaFin,
+      returnHoraInicio: returnTrip?.horaInicio || '',
+      returnHoraFin: returnTrip?.horaFin || '',
+      outboundBusId: String(outboundTrip.busId),
+      returnBusId: returnTrip ? String(returnTrip.busId) : '',
+      totalPrice: String(finalTotal),
+    };
     try {
-      const extraData = {
-        origin: originName,
-        destination: destinationName,
-        departDate,
-        returnDate: returnDate || '',
-        outboundSeats: outboundSeats.join(','),
-        returnSeats: returnSeats?.join(',') || '',
-        outboundHoraInicio: outboundTrip.horaInicio,
-        outboundHoraFin: outboundTrip.horaFin,
-        returnHoraInicio: returnTrip?.horaInicio || '',
-        returnHoraFin: returnTrip?.horaFin || '',
-        outboundBusId: String(outboundTrip.busId),
-        returnBusId: returnTrip ? String(returnTrip.busId) : '',
-        totalPrice: String(finalTotal),
-      };
-      const url = await crearSesionStripe(finalTotal, idCompraIda, idCompraVuelta, extraData);
+      const url = await crearSesionStripe(finalTotal, idCompraIda, idCompraVuelta, data);
       Linking.openURL(url);
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo iniciar el pago');
     }
   };
-
-  if (loadingLocs) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1f2c3a" />
-      </View>
-    );
-  }
-
-  // calcular precio unitario y subtotal según si ya viene con descuento
-  const unitOut = isTotalPrice
-    ? Math.round(outboundTrip.precioPasaje * (1 - discountPercent / 100))
-    : outboundTrip.precioPasaje;
-  const priceOut = unitOut * outboundSeats.length;
-
-  const unitRet =
-    tripType === 'roundtrip' && returnTrip && returnSeats
-      ? isTotalPrice
-        ? Math.round(returnTrip.precioPasaje * (1 - discountPercent / 100))
-        : returnTrip.precioPasaje
-      : 0;
-  const priceRet = unitRet * (returnSeats?.length || 0);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -231,75 +199,69 @@ export default function PaymentScreen() {
 
       <View style={styles.alertBox}>
         <Text style={styles.alertMessage}>
-          Recuerde que tiene{' '}
-          <Text style={styles.alertTime}>{formatTime(remainingSeconds)}</Text>{' '}
-          para completar el proceso de pago.
+          Recuerde que tiene <Text style={styles.alertTime}>10:00</Text> para completar el proceso de pago.
         </Text>
       </View>
 
-      <View style={styles.block}>
-        <Text style={styles.label}>Origen → Destino:</Text>
-        <Text style={styles.value}>
-          {originName} → {destinationName}
-        </Text>
-        <Text style={styles.label}>Fecha Ida:</Text>
-        <Text style={styles.value}>
-          {departDate.split('-').reverse().join('/')}
-        </Text>
-        <Text style={styles.label}>Ómnibus Ida:</Text>
-        <Text style={styles.value}>
-          {outboundTrip.busId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}
-        </Text>
-        <Text style={styles.label}>Asientos Ida:</Text>
-        <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
-        <Text style={styles.label}>Precio por pasaje:</Text>
-        <Text style={styles.value}>${unitOut}</Text>
-        <Text style={styles.label}>Subtotal Ida:</Text>
-        <Text style={styles.value}>${priceOut}</Text>
-      </View>
+      {loadingLocs ? (
+        <ActivityIndicator size="large" />
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.label}>Origen → Destino:</Text>
+          <Text style={styles.value}>{originName} → {destinationName}</Text>
 
-      {tripType === 'roundtrip' && returnTrip && returnSeats && (
-        <View style={styles.block}>
-          <Text style={styles.label}>Fecha Vuelta:</Text>
-          <Text style={styles.value}>
-            {returnDate?.split('-').reverse().join('/')}
-          </Text>
-          <Text style={styles.label}>Ómnibus Vuelta:</Text>
-          <Text style={styles.value}>
-            {returnTrip.busId} - {returnTrip.horaInicio} a {returnTrip.horaFin}
-          </Text>
-          <Text style={styles.label}>Asientos Vuelta:</Text>
-          <Text style={styles.value}>{returnSeats.join(', ')}</Text>
+<Text style={styles.label}>Fecha Ida:</Text>
+<Text style={styles.value}>{formatDate(departDate)}</Text>
+
+          <Text style={styles.label}>Ómnibus Ida:</Text>
+          <Text style={styles.value}>{outboundTrip.viajeId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}</Text>
+
+          <Text style={styles.label}>Asientos Ida:</Text>
+          <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
+
           <Text style={styles.label}>Precio por pasaje:</Text>
-          <Text style={styles.value}>${unitRet}</Text>
-          <Text style={styles.label}>Subtotal Vuelta:</Text>
-          <Text style={styles.value}>${priceRet}</Text>
+          {formatWithDiscount(priceOutFinal, priceOutOriginal)}
+
+          <Text style={styles.label}>Subtotal Ida:</Text>
+          {formatWithDiscount(subtotalOut, subtotalOutOriginal)}
+
+          {tripType === 'roundtrip' && returnTrip && retCount > 0 && (
+            <>
+              <Text style={styles.label}>Asientos Vuelta:</Text>
+              <Text style={styles.value}>{returnSeats?.join(', ')}</Text>
+
+              <Text style={styles.label}>Precio por pasaje Vuelta:</Text>
+              {formatWithDiscount(priceRetFinal, priceRetOriginal)}
+
+              <Text style={styles.label}>Subtotal Vuelta:</Text>
+              {formatWithDiscount(subtotalRet, subtotalRetOriginal)}
+            </>
+          )}
         </View>
       )}
 
-      <View style={styles.totalBlock}>
-        {discountPercent > 0 && !isTotalPrice && (
-          <View style={styles.discountBox}>
-            <View style={styles.discountRow}>
-              <FontAwesome
-                name="ticket"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.discountText}>Descuento aplicado</Text>
-            </View>
-            <Text style={styles.discountAmount}>-{discountPercent}%</Text>
+      {discountPercent > 0 && (
+        <View style={styles.discountBox}>
+          <View style={styles.discountRow}>
+            <FontAwesome name="ticket" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.discountText}>Descuento aplicado</Text>
           </View>
-        )}
-        <Text style={styles.totalLabel}>Total a Pagar:</Text>
-        <Text style={styles.total}>${finalTotal}</Text>
+          <Text style={styles.discountAmount}>-{discountPercent}%</Text>
+        </View>
+      )}
+
+      <View style={styles.totalBox}>
+        <Text style={styles.totalText}>Total a Pagar:</Text>
+        <Text style={styles.totalAmount}>${finalTotal}</Text>
       </View>
 
-      <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={handleStripeCheckout}
-      >
+      {discountPercent > 0 && (
+        <Text style={styles.note}>
+          El precio en rojo indica el valor original antes del descuento aplicado.
+        </Text>
+      )}
+
+      <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
         <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -309,14 +271,8 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     padding: 16,
-    backgroundColor: '#c6eefc',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#c6eefc',
   },
   title: {
@@ -326,7 +282,23 @@ const styles = StyleSheet.create({
     color: '#1f2c3a',
     fontWeight: 'bold',
   },
-  block: {
+  alertBox: {
+    backgroundColor: '#fff8e1',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: '#f9c94e',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: '#1f2c3a',
+  },
+  alertTime: {
+    fontWeight: 'bold',
+    color: '#d84315',
+  },
+  card: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
@@ -346,17 +318,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2c3a',
   },
-  discountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
   discountBox: {
     backgroundColor: '#f44336',
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
+  },
+  discountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   discountText: {
     color: '#fff',
@@ -371,23 +343,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
-  totalBlock: {
+  totalBox: {
     backgroundColor: '#1f2c3a',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
   },
-  totalLabel: {
+  totalText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
+    textAlign: 'center',
   },
-  total: {
+  totalAmount: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
     marginTop: 4,
+  },
+  note: {
+    fontSize: 14,
+    color: '#d84315',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   primaryButton: {
     backgroundColor: '#f9c94e',
@@ -400,21 +380,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     fontWeight: 'bold',
-  },
-  alertBox: {
-    backgroundColor: '#fff8e1',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 5,
-    borderLeftColor: '#f9c94e',
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: '#1f2c3a',
-  },
-  alertTime: {
-    fontWeight: 'bold',
-    color: '#d84315',
   },
 });
