@@ -15,7 +15,6 @@ interface PurchaseRequest {
 function decodeToken(token: string): { id: number } {
   try {
     const payloadBase64 = token.split('.')[1];
-    // Use atob for Base64 decoding, which is available in React Native environments
     const decoded = atob(payloadBase64);
     const payload = JSON.parse(decoded);
     return { id: payload.id };
@@ -26,7 +25,7 @@ function decodeToken(token: string): { id: number } {
 
 export async function getReservasUsuario(email: string) {
   console.log('[DEBUG] Obteniendo reservas para el usuario:', email);
-  const url = `https://backend.tecnobus.uy/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`;
+  const url = `${BASE_URL}/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -56,7 +55,7 @@ export async function reservarPasaje(
     estadoCompra: 'RESERVADA',
   };
 
-  console.log(body);
+  console.log('[DEBUG] Reservando pasaje:', body);
   const response = await fetch(`${BASE_URL}/usuarios/comprarPasaje`, {
     method: 'POST',
     headers: {
@@ -69,13 +68,11 @@ export async function reservarPasaje(
   console.log('[DEBUG] Reservar pasaje response:', json);
 
   if (!response.ok) {
-    console.error('[DEBUG] Error reservando pasaje:', json);
     const message = json?.message || 'No se pudo reservar el pasaje';
     throw new Error(message);
   }
 
   if (!json?.idCompra) {
-    console.error('[DEBUG] Error reservando pasaje: No se recibió idCompra');
     throw new Error('No se recibió idCompra');
   }
 
@@ -90,24 +87,24 @@ export async function crearSesionStripe(
 ): Promise<string> {
   const params = new URLSearchParams();
 
-  const baseSuccessUrl = new URL('http://tecnobus.uy:8090/payment-success.html');
-  baseSuccessUrl.searchParams.append('idCompraIda', idCompraIda.toString());
-  baseSuccessUrl.searchParams.append('totalPrice', totalUYU.toString());
+  const rawSuccessUrl =
+    `http://tecnobus.uy:8090/payment-success.html` +
+    `?session_id={CHECKOUT_SESSION_ID}` +
+    `&idCompraIda=${idCompraIda}` +
+    (idCompraVuelta ? `&idCompraVuelta=${idCompraVuelta}` : '') +
+    `&totalPrice=${totalUYU}` +
+    `&origin=${encodeURIComponent(extraData?.origin || '')}` +
+    `&destination=${encodeURIComponent(extraData?.destination || '')}` +
+    `&departDate=${encodeURIComponent(extraData?.departDate || '')}` +
+    `&outboundSeats=${encodeURIComponent(extraData?.outboundSeats || '')}` +
+    `&outboundHoraInicio=${encodeURIComponent(extraData?.outboundHoraInicio || '')}` +
+    `&outboundHoraFin=${encodeURIComponent(extraData?.outboundHoraFin || '')}` +
+    `&outboundBusId=${encodeURIComponent(extraData?.outboundBusId || '')}`;
 
-  if (idCompraVuelta) {
-    baseSuccessUrl.searchParams.append('idCompraVuelta', idCompraVuelta.toString());
-  }
+  const cancelUrl = `http://tecnobus.uy:8090/payment-cancel.html`;
 
-  if (extraData) {
-    for (const [key, value] of Object.entries(extraData)) {
-      if (value && !baseSuccessUrl.searchParams.has(key)) {
-        baseSuccessUrl.searchParams.append(key, value);
-      }
-    }
-  }
-
-  params.append('success_url', baseSuccessUrl.toString());
-  params.append('cancel_url', 'http://tecnobus.uy:8090/payment-cancel.html');
+  params.append('success_url', rawSuccessUrl);
+  params.append('cancel_url', cancelUrl);
   params.append('mode', 'payment');
   params.append('line_items[0][price_data][currency]', 'uyu');
   params.append('line_items[0][price_data][product_data][name]', 'Pasaje de ómnibus');
@@ -124,10 +121,9 @@ export async function crearSesionStripe(
   });
 
   const data = await response.json();
+  console.log('[DEBUG] Respuesta crearSesionStripe:', data);
 
   if (!response.ok || !data.url) {
-    console.error('[DEBUG] Error creando sesión Stripe:', data);
-    console.error('[DEBUG] Response status:', response.status);
     const message = data?.error?.message || 'No se pudo iniciar el pago';
     throw new Error(message);
   }
@@ -154,8 +150,30 @@ export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
     } catch {
       json = {};
     }
-    console.error('[DEBUG] Error cambiando estado de compra /cambiarEstadoCompra:', json);
     const message = json?.mensaje || 'No se pudo actualizar el estado de compra';
+    throw new Error(message);
+  }
+}
+export async function guardarReferenciaPago(idCompra: number, stripeSessionId: string): Promise<void> {
+  const url = `${BASE_URL}/usuarios/guardarReferenciaPago?idCompra=${idCompra}&referencia=${stripeSessionId}`;
+
+  console.log('[DEBUG] Llamando a guardarReferenciaPago:', url);
+
+  const response = await fetch(url, {
+    method: 'POST',
+  });
+
+  const text = await response.text();
+  console.log('[DEBUG] Respuesta guardarReferenciaPago:', response.status, text);
+
+  if (!response.ok) {
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = {};
+    }
+    const message = json?.mensaje || 'No se pudo guardar la referencia de pago';
     throw new Error(message);
   }
 }

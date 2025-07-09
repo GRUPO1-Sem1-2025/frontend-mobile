@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher'; 
 import * as MailComposer from 'expo-mail-composer';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { cambiarEstadoCompra } from '../../services/purchases';
+import { cambiarEstadoCompra, guardarReferenciaPago } from '../../services/purchases';
 import * as Sharing from 'expo-sharing'; // Importación de expo-sharing
 
 function parseQueryParams(url: string): Record<string, string> {
@@ -51,30 +51,50 @@ export default function PaymentSuccessScreen() {
 
   const parsed = params?.url ? parseQueryParams(params.url) : params;
 
-  const {
-    idCompraIda,
-    idCompraVuelta,
-    origin,
-    destination,
-    departDate,
-    returnDate,
-    totalPrice,
-    outboundHoraInicio,
-    outboundHoraFin,
-    outboundBusId,
-    outboundSeats,
-    returnHoraInicio,
-    returnHoraFin,
-    returnBusId,
-    returnSeats,
-  } = parsed;
+const {
+  idCompraIda,
+  idCompraVuelta,
+  origin,
+  destination,
+  departDate,
+  returnDate,
+  totalPrice,
+  outboundHoraInicio,
+  outboundHoraFin,
+  outboundBusId,
+  outboundSeats,
+  returnHoraInicio,
+  returnHoraFin,
+  returnBusId,
+  returnSeats,
+} = parsed;
 
-  useEffect(() => {
-    const idaId = Number(idCompraIda);
-    const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
-    if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
-    if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
-  }, [idCompraIda, idCompraVuelta]);
+const session_id = parsed.session_id;
+const [stripeSessionId, setStripeSessionId] = useState<string | null>(null);
+
+useEffect(() => {
+  const idaId = Number(idCompraIda);
+  const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
+
+  if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
+  if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
+
+  if (!session_id || session_id.includes('{CHECKOUT_SESSION_ID}')) {
+    Alert.alert(
+      'Error',
+      'Stripe no devolvió un ID de sesión válido. Verifica que el pago se haya completado correctamente.'
+    );
+  } else {
+    console.log('[DEBUG] Stripe session_id recibido:', session_id);
+    setStripeSessionId(session_id);
+
+    if (idaId) {
+      guardarReferenciaPago(idaId, session_id).catch((err) => {
+        console.error('[DEBUG] Error guardando referencia de pago:', err);
+      });
+    }
+  }
+}, [idCompraIda, idCompraVuelta, session_id]);
 
   const handleGeneratePDF = async () => {
     const formattedTotal = parseFloat(totalPrice).toFixed(2);

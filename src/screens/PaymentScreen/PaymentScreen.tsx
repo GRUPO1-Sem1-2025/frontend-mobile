@@ -59,6 +59,7 @@ export default function PaymentScreen() {
   const [loadingLocs, setLoadingLocs] = useState(true);
   const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent);
   const [finalTotal, setFinalTotal] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutos
 
   const outCount = outboundSeats.length;
   const retCount = returnSeats?.length || 0;
@@ -90,7 +91,8 @@ export default function PaymentScreen() {
             const email = payload.sub;
             const reservas = await getReservasUsuario(email);
             const match = reservas.find((r: any) =>
-              r.viajeId === outboundTrip.viajeId && JSON.stringify(r.numerosDeAsiento.sort()) === JSON.stringify(outboundSeats.sort())
+              r.viajeId === outboundTrip.viajeId &&
+              JSON.stringify(r.numerosDeAsiento.sort()) === JSON.stringify(outboundSeats.sort())
             );
             if (match?.descuento) {
               setDiscountPercent(match.descuento);
@@ -120,38 +122,30 @@ export default function PaymentScreen() {
     }
   }, [discountPercent, outboundTrip, returnTrip, totalPrice]);
 
-  // aplicar lógicas de precios dependiendo del origen
-  if (isTotalPrice) {
-    const unit = totalPrice / (outCount + retCount || 1);
-    priceOutFinal = Math.round(unit);
-    priceOutOriginal = discountPercent > 0
-      ? Math.round(priceOutFinal / (1 - discountPercent / 100))
-      : priceOutFinal;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          Alert.alert(
+            'Tiempo expirado',
+            'El tiempo para completar el pago ha expirado.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    if (retCount > 0) {
-      priceRetFinal = priceOutFinal;
-      priceRetOriginal = discountPercent > 0
-        ? Math.round(priceRetFinal / (1 - discountPercent / 100))
-        : priceRetFinal;
-    }
-  } else {
-    priceOutOriginal = outboundTrip.precioPasaje;
-    priceOutFinal = discountPercent > 0
-      ? Math.round(priceOutOriginal * (1 - discountPercent / 100))
-      : priceOutOriginal;
+    return () => clearInterval(interval);
+  }, []);
 
-    if (retCount > 0 && returnTrip) {
-      priceRetOriginal = returnTrip.precioPasaje;
-      priceRetFinal = discountPercent > 0
-        ? Math.round(priceRetOriginal * (1 - discountPercent / 100))
-        : priceRetOriginal;
-    }
-  }
-
-  const subtotalOut = priceOutFinal * outCount;
-  const subtotalOutOriginal = priceOutOriginal * outCount;
-  const subtotalRet = priceRetFinal * retCount;
-  const subtotalRetOriginal = priceRetOriginal * retCount;
+  const formatTime = (seconds: number): string => {
+    const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const sec = (seconds % 60).toString().padStart(2, '0');
+    return `${min}:${sec}`;
+  };
 
   const formatWithDiscount = (final: number, original: number) => {
     if (discountPercent > 0 && original > final) {
@@ -165,10 +159,11 @@ export default function PaymentScreen() {
     return <Text style={styles.value}>${final}</Text>;
   };
 
-const formatDate = (str: string) => {
-  const [year, month, day] = str.split('-');
-  return `${day}/${month}/${year}`;
-};
+  const formatDate = (str: string) => {
+    const [year, month, day] = str.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const handleStripeCheckout = async () => {
     const data = {
       origin: originName,
@@ -193,13 +188,18 @@ const formatDate = (str: string) => {
     }
   };
 
+  const subtotalOut = priceOutFinal * outCount;
+  const subtotalOutOriginal = priceOutOriginal * outCount;
+  const subtotalRet = priceRetFinal * retCount;
+  const subtotalRetOriginal = priceRetOriginal * retCount;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Resumen de Compra</Text>
 
       <View style={styles.alertBox}>
         <Text style={styles.alertMessage}>
-          Recuerde que tiene <Text style={styles.alertTime}>10:00</Text> para completar el proceso de pago.
+          Recuerde que tiene <Text style={styles.alertTime}>{formatTime(timeLeft)}</Text> para completar el proceso de pago.
         </Text>
       </View>
 
@@ -210,8 +210,8 @@ const formatDate = (str: string) => {
           <Text style={styles.label}>Origen → Destino:</Text>
           <Text style={styles.value}>{originName} → {destinationName}</Text>
 
-<Text style={styles.label}>Fecha Ida:</Text>
-<Text style={styles.value}>{formatDate(departDate)}</Text>
+          <Text style={styles.label}>Fecha Ida:</Text>
+          <Text style={styles.value}>{formatDate(departDate)}</Text>
 
           <Text style={styles.label}>Ómnibus Ida:</Text>
           <Text style={styles.value}>{outboundTrip.viajeId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}</Text>
@@ -254,12 +254,6 @@ const formatDate = (str: string) => {
         <Text style={styles.totalText}>Total a Pagar:</Text>
         <Text style={styles.totalAmount}>${finalTotal}</Text>
       </View>
-
-      {discountPercent > 0 && (
-        <Text style={styles.note}>
-          El precio en rojo indica el valor original antes del descuento aplicado.
-        </Text>
-      )}
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleStripeCheckout}>
         <Text style={styles.primaryButtonText}>Pagar con Stripe</Text>
@@ -361,13 +355,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     marginTop: 4,
-  },
-  note: {
-    fontSize: 14,
-    color: '#d84315',
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
   },
   primaryButton: {
     backgroundColor: '#f9c94e',
