@@ -93,12 +93,23 @@ export default function PaymentSuccessScreen() {
   }, [idCompraIda, idCompraVuelta, session_id]);
 
   const generarTicketHTML = async () => {
-    const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
-    await asset.downloadAsync();
-    const fileUri = asset.localUri || asset.uri;
-    const base64Logo = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
+await asset.downloadAsync();
+
+const base64Logo = await new Promise<string>((resolve, reject) => {
+  fetch(asset.uri)
+    .then((res) => res.blob())
+    .then((blob) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result?.toString().split(',')[1];
+        resolve(base64data || '');
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    })
+    .catch(reject);
+});
     const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
     let contenido = '';
 

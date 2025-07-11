@@ -146,9 +146,9 @@ export default function TravelsScreens() {
       outboundSeats: reserva.numerosDeAsiento,
       idCompraIda: reserva.compraId,
       idCompraVuelta: null,
-      isTotalPrice: true, // <- NUEVO
+      isTotalPrice: true,
       totalPrice: detalle.precio,
-      discountPercent: detalle.descuento ?? 0, // <--- NUEVO
+      discountPercent: detalle.descuento ?? 0,
     });
   };
 
@@ -249,6 +249,13 @@ export default function TravelsScreens() {
           compras.map((comp, index) => {
             const detalle = comprasDetalles[comp.compraId];
             const yaCalificado = calificaciones[comp.viajeId] > 0;
+
+            const viajeYaPaso = (() => {
+              if (!detalle) return false;
+              const fechaCompleta = new Date(`${detalle.fechaInicio}T${detalle.horaInicio}`);
+              return fechaCompleta.getTime() < Date.now();
+            })();
+
             return (
               <View key={`comp-${index}`} style={styles.card}>
                 <Text style={styles.cardTitle}>Viaje #{comp.viajeId}</Text>
@@ -258,9 +265,9 @@ export default function TravelsScreens() {
                   <>
                     <Text style={styles.cardText}>Origen: {detalle.localidadOrigenNombre}</Text>
                     <Text style={styles.cardText}>Destino: {detalle.localidadDestinoNombre}</Text>
-<Text style={styles.cardText}>
-  Fecha: {detalle.fechaInicio.split('-').reverse().join('/')}
-</Text>
+                    <Text style={styles.cardText}>
+                      Fecha: {detalle.fechaInicio.split('-').reverse().join('/')}
+                    </Text>
                     <Text style={styles.cardText}>
                       Horario: {detalle.horaInicio} - {detalle.horaFin}
                     </Text>
@@ -278,13 +285,17 @@ export default function TravelsScreens() {
                       </Text>
                     )}
                   </>
-                ) : (
+                ) : viajeYaPaso ? (
                   <TouchableOpacity
                     style={styles.rateButton}
                     onPress={() => handleOpenModal(comp.viajeId)}
                   >
                     <Text style={styles.rateButtonText}>Calificar Viaje</Text>
                   </TouchableOpacity>
+                ) : (
+                  <Text style={styles.pendingText}>
+                    Podrás calificar este viaje después de realizarlo.
+                  </Text>
                 )}
               </View>
             );
@@ -343,4 +354,5 @@ const styles = StyleSheet.create({
   submitButtonText: { color: colors.darkBlue, fontWeight: 'bold', fontSize: 16 },
   cancelButton: { marginTop: 8 },
   cancelButtonText: { color: colors.darkBlue, fontSize: 14 },
+  pendingText: { fontSize: 14, color: colors.darkBlue, fontStyle: 'italic', marginTop: 8, textAlign: 'center' },
 });
