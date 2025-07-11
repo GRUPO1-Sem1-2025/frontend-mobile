@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -122,24 +123,30 @@ export default function PaymentScreen() {
     }
   }, [discountPercent, outboundTrip, returnTrip, totalPrice]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          Alert.alert(
-            'Tiempo expirado',
-            'El tiempo para completar el pago ha expirado.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+useFocusEffect(
+  React.useCallback(() => {
+    let interval: NodeJS.Timeout;
 
-    return () => clearInterval(interval);
-  }, []);
+    if (timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            Alert.alert(
+              'Tiempo expirado',
+              'El tiempo para completar el pago ha expirado.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval); // se limpia cuando pierde foco
+  }, [timeLeft])
+);
 
   const formatTime = (seconds: number): string => {
     const min = Math.floor(seconds / 60).toString().padStart(2, '0');
