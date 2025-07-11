@@ -93,7 +93,7 @@ export default function PaymentSuccessScreen() {
   }, [idCompraIda, idCompraVuelta, session_id]);
 
   const generarTicketHTML = async () => {
-    const asset = Asset.fromModule(require('../../../assets/icon.png'));
+    const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
     await asset.downloadAsync();
     const base64Logo = await FileSystem.readAsStringAsync(asset.localUri || '', {
       encoding: FileSystem.EncodingType.Base64,
