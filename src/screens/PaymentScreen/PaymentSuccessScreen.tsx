@@ -95,10 +95,10 @@ export default function PaymentSuccessScreen() {
   const generarTicketHTML = async () => {
     const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
     await asset.downloadAsync();
-    const base64Logo = await FileSystem.readAsStringAsync(asset.localUri || '', {
+    const fileUri = asset.localUri || asset.uri;
+    const base64Logo = await FileSystem.readAsStringAsync(fileUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-
     const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
     let contenido = '';
 
@@ -115,8 +115,8 @@ export default function PaymentSuccessScreen() {
       const qrAnden =
         origin === 'Montevideo' && esIda
           ? await QRCode.toDataURL(
-              `TECNOBUS,${formatFecha(fechaSalida)},${formatHora(horaSalida)},Si`
-            )
+            `TECNOBUS,${formatFecha(fechaSalida)},${formatHora(horaSalida)},Si`
+          )
           : '';
 
       contenido += `
@@ -146,14 +146,13 @@ export default function PaymentSuccessScreen() {
               <p style="font-weight: bold;">Control</p>
               <img src="${qrControl}" style="width: 100px;" />
             </div>
-            ${
-              qrAnden
-                ? `<div style="text-align: center;">
+            ${qrAnden
+          ? `<div style="text-align: center;">
                     <p style="font-weight: bold;">Acceso a andenes</p>
                     <img src="${qrAnden}" style="width: 100px;" />
                   </div>`
-                : ''
-            }
+          : ''
+        }
           </div>
         </div>
       `;
@@ -162,59 +161,59 @@ export default function PaymentSuccessScreen() {
     return `<html><body>${contenido}</body></html>`;
   };
 
-const handleGeneratePDF = async () => {
-  try {
-    console.log('[DEBUG] Solicitando permisos de MediaLibrary...');
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== 'granted') {
-      console.warn('[DEBUG] Permiso de MediaLibrary denegado');
-      Alert.alert('Permiso denegado', 'No se pudo acceder al almacenamiento.');
-      return;
+  const handleGeneratePDF = async () => {
+    try {
+      console.log('[DEBUG] Solicitando permisos de MediaLibrary...');
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('[DEBUG] Permiso de MediaLibrary denegado');
+        Alert.alert('Permiso denegado', 'No se pudo acceder al almacenamiento.');
+        return;
+      }
+
+      console.log('[DEBUG] Generando HTML del ticket...');
+      const html = await generarTicketHTML();
+
+      console.log('[DEBUG] Creando PDF con expo-print...');
+      const { uri } = await Print.printToFileAsync({ html });
+      console.log('[DEBUG] PDF generado en:', uri);
+
+      const fecha = new Date().toISOString().split('T')[0];
+      const fileName = `ticket-${idCompraIda}-${fecha}.pdf`;
+      const newPath = `${FileSystem.documentDirectory}${fileName}`;
+
+      console.log(`[DEBUG] Copiando PDF a nueva ruta con nombre personalizado: ${newPath}`);
+      await FileSystem.copyAsync({ from: uri, to: newPath });
+
+      console.log('[DEBUG] Creando asset en MediaLibrary...');
+      const asset = await MediaLibrary.createAssetAsync(newPath);
+
+      console.log('[DEBUG] Agregando asset al álbum TicketsTecnobus...');
+      await MediaLibrary.createAlbumAsync('TicketsTecnobus', asset, false);
+
+      if (await Sharing.isAvailableAsync()) {
+        console.log('[DEBUG] Compartiendo PDF con expo-sharing...');
+        await Sharing.shareAsync(newPath, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        console.log('[DEBUG] Sharing no disponible en este dispositivo');
+      }
+
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Guardado como ${fileName}`, ToastAndroid.LONG);
+      } else {
+        Alert.alert('PDF guardado', `Ticket guardado como ${fileName}.`);
+      }
+
+      console.log('[DEBUG] Proceso completado con éxito ✅');
+
+    } catch (error) {
+      console.error('[ERROR] Error generando o guardando PDF:', error);
+      Alert.alert('Error', 'No se pudo generar o guardar el PDF.');
     }
-
-    console.log('[DEBUG] Generando HTML del ticket...');
-    const html = await generarTicketHTML();
-
-    console.log('[DEBUG] Creando PDF con expo-print...');
-    const { uri } = await Print.printToFileAsync({ html });
-    console.log('[DEBUG] PDF generado en:', uri);
-
-    const fecha = new Date().toISOString().split('T')[0];
-    const fileName = `ticket-${idCompraIda}-${fecha}.pdf`;
-    const newPath = `${FileSystem.documentDirectory}${fileName}`;
-
-    console.log(`[DEBUG] Copiando PDF a nueva ruta con nombre personalizado: ${newPath}`);
-    await FileSystem.copyAsync({ from: uri, to: newPath });
-
-    console.log('[DEBUG] Creando asset en MediaLibrary...');
-    const asset = await MediaLibrary.createAssetAsync(newPath);
-
-    console.log('[DEBUG] Agregando asset al álbum TicketsTecnobus...');
-    await MediaLibrary.createAlbumAsync('TicketsTecnobus', asset, false);
-
-    if (await Sharing.isAvailableAsync()) {
-      console.log('[DEBUG] Compartiendo PDF con expo-sharing...');
-      await Sharing.shareAsync(newPath, {
-        mimeType: 'application/pdf',
-        UTI: 'com.adobe.pdf',
-      });
-    } else {
-      console.log('[DEBUG] Sharing no disponible en este dispositivo');
-    }
-
-    if (Platform.OS === 'android') {
-      ToastAndroid.show(`Guardado como ${fileName}`, ToastAndroid.LONG);
-    } else {
-      Alert.alert('PDF guardado', `Ticket guardado como ${fileName}.`);
-    }
-
-    console.log('[DEBUG] Proceso completado con éxito ✅');
-
-  } catch (error) {
-    console.error('[ERROR] Error generando o guardando PDF:', error);
-    Alert.alert('Error', 'No se pudo generar o guardar el PDF.');
-  }
-};
+  };
 
   const handleSendEmail = async () => {
     const html = await generarTicketHTML();

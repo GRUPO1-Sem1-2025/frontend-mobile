@@ -293,7 +293,11 @@ export default function BusSelectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.skyBlue, alignItems: 'center' },
+  container: {
+  padding: 16,
+  backgroundColor: colors.skyBlue,
+  alignItems: 'center',
+},
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.skyBlue },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: colors.darkBlue },
   sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 4, color: colors.darkBlue },
