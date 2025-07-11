@@ -44,6 +44,9 @@
     },
     "plugins": [
       "expo-notifications"
+    ],
+    "assetBundlePatterns": [
+      "assets/*"
     ]
   }
 }
