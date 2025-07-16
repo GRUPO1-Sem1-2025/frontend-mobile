@@ -121,12 +121,24 @@ const generarHTML = () => {
     </div>
   `;
 
-  const idaPages = outboundSeats.map((seat: number) =>
+  const outboundArray = Array.isArray(outboundSeats)
+    ? outboundSeats
+    : typeof outboundSeats === 'string'
+      ? outboundSeats.split(',').map((s: string) => parseInt(s.trim()))
+      : [];
+
+  const returnArray = Array.isArray(returnSeats)
+    ? returnSeats
+    : typeof returnSeats === 'string'
+      ? returnSeats.split(',').map((s: string) => parseInt(s.trim()))
+      : [];
+
+  const idaPages = outboundArray.map((seat: number) =>
     formatAsiento(departDate, outboundHoraInicio, outboundHoraFin, seat)
   ).join('');
 
-  const vueltaPages = returnSeats
-    ? returnSeats.map((seat: number) =>
+  const vueltaPages = returnArray.length
+    ? returnArray.map((seat: number) =>
         formatAsiento(returnDate, returnHoraInicio, returnHoraFin, seat)
       ).join('')
     : '';
@@ -167,7 +179,6 @@ const generarHTML = () => {
     </html>
   `;
 };
-
   const handleGeneratePDF = async () => {
     try {
       const html = generarHTML();
