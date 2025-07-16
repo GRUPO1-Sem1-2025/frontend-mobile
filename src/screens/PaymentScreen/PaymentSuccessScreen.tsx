@@ -17,7 +17,8 @@ import * as MediaLibrary from 'expo-media-library';
 import { Asset } from 'expo-asset';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra, guardarReferenciaPago } from '../../services/purchases';
-import QRCode from 'qrcode';
+import QRCode from 'qrcode-svg';
+import { encode as btoa } from 'base-64';
 
 function parseQueryParams(url: string): Record<string, string> {
   try {
@@ -27,24 +28,41 @@ function parseQueryParams(url: string): Record<string, string> {
     for (const [key, value] of params.entries()) {
       result[key] = decodeURIComponent(value);
     }
+    console.debug('[DEBUG] Parsed query params:', result); // Debugging parsed params
     return result;
   } catch (e) {
-    console.warn('Error al parsear la URL:', e);
+    console.warn('[DEBUG] Error al parsear la URL:', e);
     return {};
   }
 }
 
 function formatFecha(iso: string) {
   const date = new Date(iso);
-  return date.toLocaleDateString('es-UY', {
+  const formattedDate = date.toLocaleDateString('es-UY', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
+  console.debug('[DEBUG] Formatted date:', formattedDate); // Debugging formatted date
+  return formattedDate;
 }
 
 function formatHora(hora: string) {
-  return hora.length >= 5 ? hora.slice(0, 5) : hora;
+  const formattedHora = hora.length >= 5 ? hora.slice(0, 5) : hora;
+  console.debug('[DEBUG] Formatted time:', formattedHora); // Debugging formatted time
+  return formattedHora;
+}
+
+function generarQRBase64(contenido: string): string {
+  const svgQR = new QRCode({
+    content: contenido,
+    padding: 0,
+    width: 100,
+    height: 100,
+  }).svg();
+  const base64 = btoa(svgQR);
+  console.debug('[DEBUG] Generated QR base64:', base64); // Debugging QR code generation
+  return `data:image/svg+xml;base64,${base64}`;
 }
 
 export default function PaymentSuccessScreen() {
@@ -79,6 +97,9 @@ export default function PaymentSuccessScreen() {
     const idaId = Number(idCompraIda);
     const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
 
+    console.debug('[DEBUG] ID Compra Ida:', idaId); // Debugging idaId
+    console.debug('[DEBUG] ID Compra Vuelta:', vueltaId); // Debugging vueltaId
+
     if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
     if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
 
@@ -93,24 +114,29 @@ export default function PaymentSuccessScreen() {
   }, [idCompraIda, idCompraVuelta, session_id]);
 
   const generarTicketHTML = async () => {
-const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
-await asset.downloadAsync();
+    const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
+    await asset.downloadAsync();
+    console.debug('[DEBUG] Ticket asset downloaded:', asset.uri); // Debugging asset download
 
-const base64Logo = await new Promise<string>((resolve, reject) => {
-  fetch(asset.uri)
-    .then((res) => res.blob())
-    .then((blob) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result?.toString().split(',')[1];
-        resolve(base64data || '');
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    })
-    .catch(reject);
-});
+    const base64Logo = await new Promise<string>((resolve, reject) => {
+      fetch(asset.uri)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64data = reader.result?.toString().split(',')[1];
+            resolve(base64data || '');
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        })
+        .catch(reject);
+    });
+
+    console.debug('[DEBUG] Base64 logo generated:', base64Logo); // Debugging base64 logo
+
     const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
+    console.debug('[DEBUG] All seats:', asientosCompletos); // Debugging seats array
     let contenido = '';
 
     for (const asiento of asientosCompletos) {
@@ -119,16 +145,19 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
       const horaSalida = esIda ? outboundHoraInicio : returnHoraInicio;
       const horaArribo = esIda ? outboundHoraFin : returnHoraFin;
 
-      const qrControl = await QRCode.toDataURL(
+      const qrControl = generarQRBase64(
         `${origin} - ${destination} - ${fechaSalida} - ${horaSalida} - ${asiento}`
       );
 
       const qrAnden =
         origin === 'Montevideo' && esIda
-          ? await QRCode.toDataURL(
-            `TECNOBUS,${formatFecha(fechaSalida)},${formatHora(horaSalida)},Si`
-          )
+          ? generarQRBase64(
+              `TECNOBUS,${formatFecha(fechaSalida)},${formatHora(horaSalida)},Si`
+            )
           : '';
+
+      console.debug('[DEBUG] QR Control:', qrControl); // Debugging QR control
+      console.debug('[DEBUG] QR Anden:', qrAnden); // Debugging QR Anden
 
       contenido += `
         <div style="page-break-after: always; padding: 24px; font-family: sans-serif;">
@@ -157,95 +186,73 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
               <p style="font-weight: bold;">Control</p>
               <img src="${qrControl}" style="width: 100px;" />
             </div>
-            ${qrAnden
-          ? `<div style="text-align: center;">
-                    <p style="font-weight: bold;">Acceso a andenes</p>
-                    <img src="${qrAnden}" style="width: 100px;" />
-                  </div>`
-          : ''
-        }
+            ${
+              qrAnden
+                ? `<div style="text-align: center;">
+                     <p style="font-weight: bold;">Acceso a andenes</p>
+                     <img src="${qrAnden}" style="width: 100px;" />
+                   </div>`
+                : ''
+            }
           </div>
         </div>
       `;
     }
+
+    console.debug('[DEBUG] Generated ticket HTML:', contenido); // Debugging generated HTML
 
     return `<html><body>${contenido}</body></html>`;
   };
 
   const handleGeneratePDF = async () => {
     try {
-      console.log('[DEBUG] Solicitando permisos de MediaLibrary...');
       const { status } = await MediaLibrary.requestPermissionsAsync();
+      console.debug('[DEBUG] Media Library permissions:', status); // Debugging permission status
+
       if (status !== 'granted') {
-        console.warn('[DEBUG] Permiso de MediaLibrary denegado');
         Alert.alert('Permiso denegado', 'No se pudo acceder al almacenamiento.');
         return;
       }
 
-      console.log('[DEBUG] Generando HTML del ticket...');
       const html = await generarTicketHTML();
-
-      console.log('[DEBUG] Creando PDF con expo-print...');
       const { uri } = await Print.printToFileAsync({ html });
-      console.log('[DEBUG] PDF generado en:', uri);
+
+      console.debug('[DEBUG] Generated PDF URI:', uri); // Debugging PDF URI
 
       const fecha = new Date().toISOString().split('T')[0];
       const fileName = `ticket-${idCompraIda}-${fecha}.pdf`;
-      const newPath = `${FileSystem.documentDirectory}${fileName}`;
+      const newPath =
+        Platform.OS === 'ios'
+          ? `${FileSystem.cacheDirectory}${fileName}`
+          : `${FileSystem.documentDirectory}${fileName}`;
 
-      console.log(`[DEBUG] Copiando PDF a nueva ruta con nombre personalizado: ${newPath}`);
+      console.debug('[DEBUG] New file path:', newPath); // Debugging new file path
+
       await FileSystem.copyAsync({ from: uri, to: newPath });
 
-      console.log('[DEBUG] Creando asset en MediaLibrary...');
-      const asset = await MediaLibrary.createAssetAsync(newPath);
-
-      console.log('[DEBUG] Agregando asset al álbum TicketsTecnobus...');
-      await MediaLibrary.createAlbumAsync('TicketsTecnobus', asset, false);
+      // Solo guardar en galería en Android
+      if (Platform.OS === 'android') {
+        const asset = await MediaLibrary.createAssetAsync(newPath);
+        await MediaLibrary.createAlbumAsync('TicketsTecnobus', asset, false);
+      }
 
       if (await Sharing.isAvailableAsync()) {
-        console.log('[DEBUG] Compartiendo PDF con expo-sharing...');
         await Sharing.shareAsync(newPath, {
           mimeType: 'application/pdf',
           UTI: 'com.adobe.pdf',
         });
       } else {
-        console.log('[DEBUG] Sharing no disponible en este dispositivo');
+        Alert.alert('PDF generado', `Podés encontrar el archivo en Archivos.`);
       }
 
       if (Platform.OS === 'android') {
         ToastAndroid.show(`Guardado como ${fileName}`, ToastAndroid.LONG);
       } else {
-        Alert.alert('PDF guardado', `Ticket guardado como ${fileName}.`);
+        Alert.alert('PDF generado', `Ticket guardado como ${fileName}.`);
       }
-
-      console.log('[DEBUG] Proceso completado con éxito ✅');
-
     } catch (error) {
       console.error('[ERROR] Error generando o guardando PDF:', error);
       Alert.alert('Error', 'No se pudo generar o guardar el PDF.');
-    }
-  };
-
-  const handleSendEmail = async () => {
-    const html = await generarTicketHTML();
-    const { uri } = await Print.printToFileAsync({ html });
-
-    const isAvailable = await MailComposer.isAvailableAsync();
-    if (!isAvailable) {
-      Alert.alert('Correo no disponible', 'Este dispositivo no soporta envío de correo desde la app.');
-      return;
-    }
-
-    try {
-      await MailComposer.composeAsync({
-        recipients: [],
-        subject: 'Tu ticket de viaje',
-        body: 'Adjunto encontrarás el ticket de tu compra reciente.',
-        attachments: [uri],
-      });
-    } catch (error) {
-      console.error('Error al enviar email:', error);
-      Alert.alert('Error', 'No se pudo enviar el correo.');
     }
   };
 
@@ -285,7 +292,7 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
           </Text>
 
           <Text style={styles.label}>Asientos</Text>
-          <Text style={styles.value}>{outboundSeats}</Text>
+          <Text style={styles.value}>{outboundSeats?.join(', ')}</Text>
         </View>
 
         {returnDate && (
@@ -303,7 +310,7 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
             </Text>
 
             <Text style={styles.label}>Asientos</Text>
-            <Text style={styles.value}>{returnSeats}</Text>
+            <Text style={styles.value}>{returnSeats?.join(', ')}</Text>
           </View>
         )}
 
@@ -316,11 +323,6 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
       <TouchableOpacity style={styles.primaryButton} onPress={handleGeneratePDF}>
         <Text style={styles.primaryButtonText}>Ver Ticket en PDF</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleSendEmail}>
-        <Text style={styles.secondaryButtonText}>Enviar por Email</Text>
-      </TouchableOpacity>
-
       <TouchableOpacity style={styles.secondaryButton} onPress={handleGoHome}>
         <Text style={styles.secondaryButtonText}>Volver al Inicio</Text>
       </TouchableOpacity>
@@ -329,6 +331,8 @@ const base64Logo = await new Promise<string>((resolve, reject) => {
 }
 
 const styles = StyleSheet.create({
+  container: { flexGrow: 1, justifyContent: 'center', padding: 16, backgroundColor: '#c6eefc' },
+  title: { fontSize: 24, marginBottom: 24, textAlign: 'center', color: 'green' },
   section: {
     marginBottom: 24,
     backgroundColor: '#fff',
@@ -354,9 +358,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     color: '#1f2c3a',
   },
-  container: { flexGrow: 1, justifyContent: 'center', padding: 16, backgroundColor: '#c6eefc' },
-  title: { fontSize: 24, marginBottom: 24, textAlign: 'center', color: 'green' },
-  block: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#91d5f4', paddingBottom: 12 },
+  block: {
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#91d5f4',
+    paddingBottom: 12,
+  },
   label: { fontSize: 16, fontWeight: '500', color: '#1f2c3a', marginTop: 8 },
   value: { fontSize: 16, color: '#1f2c3a' },
   total: { fontSize: 20, fontWeight: 'bold', marginVertical: 8, color: '#1f2c3a' },
