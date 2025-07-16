@@ -54,15 +54,20 @@ function formatHora(hora: string) {
 }
 
 function generarQRBase64(contenido: string): string {
-  const svgQR = new QRCode({
-    content: contenido,
-    padding: 0,
-    width: 100,
-    height: 100,
-  }).svg();
-  const base64 = btoa(svgQR);
-  console.debug('[DEBUG] Generated QR base64:', base64); // Debugging QR code generation
-  return `data:image/svg+xml;base64,${base64}`;
+  try {
+    const svgQR = new QRCode({
+      content: contenido,
+      padding: 0,
+      width: 100,
+      height: 100,
+    }).svg();
+    const base64 = btoa(svgQR);
+    console.debug('[DEBUG] Generated QR base64:', base64); // Debugging QR code generation
+    return `data:image/svg+xml;base64,${base64}`;
+  } catch (error) {
+    console.error('[ERROR] Error generando QR:', error);
+    return '';
+  }
 }
 
 export default function PaymentSuccessScreen() {
@@ -105,6 +110,7 @@ export default function PaymentSuccessScreen() {
 
     if (!session_id || session_id.includes('{CHECKOUT_SESSION_ID}')) {
       Alert.alert('Error', 'Stripe no devolvió un ID de sesión válido.');
+      console.debug('[DEBUG] session_id no válido:', session_id);
     } else {
       setStripeSessionId(session_id);
       if (idaId) {
@@ -118,25 +124,21 @@ export default function PaymentSuccessScreen() {
     await asset.downloadAsync();
     console.debug('[DEBUG] Ticket asset downloaded:', asset.uri); // Debugging asset download
 
-    const base64Logo = await new Promise<string>((resolve, reject) => {
-      fetch(asset.uri)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64data = reader.result?.toString().split(',')[1];
-            resolve(base64data || '');
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        })
-        .catch(reject);
-    });
+    let base64Logo = '';
+    try {
+      base64Logo = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } catch (error) {
+      console.error('[ERROR] No se pudo generar el logo en base64:', error);
+      return '';
+    }
 
     console.debug('[DEBUG] Base64 logo generated:', base64Logo); // Debugging base64 logo
 
     const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
     console.debug('[DEBUG] All seats:', asientosCompletos); // Debugging seats array
+
     let contenido = '';
 
     for (const asiento of asientosCompletos) {
@@ -186,14 +188,11 @@ export default function PaymentSuccessScreen() {
               <p style="font-weight: bold;">Control</p>
               <img src="${qrControl}" style="width: 100px;" />
             </div>
-            ${
-              qrAnden
-                ? `<div style="text-align: center;">
-                     <p style="font-weight: bold;">Acceso a andenes</p>
-                     <img src="${qrAnden}" style="width: 100px;" />
-                   </div>`
-                : ''
-            }
+            ${qrAnden ? `
+              <div style="text-align: center;">
+                <p style="font-weight: bold;">Acceso a andenes</p>
+                <img src="${qrAnden}" style="width: 100px;" />
+              </div>` : ''}
           </div>
         </div>
       `;
