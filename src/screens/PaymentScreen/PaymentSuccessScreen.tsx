@@ -6,49 +6,41 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  ToastAndroid,
   Platform,
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as MailComposer from 'expo-mail-composer';
-import * as MediaLibrary from 'expo-media-library';
-import { Asset } from 'expo-asset';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra, guardarReferenciaPago } from '../../services/purchases';
 
 function parseQueryParams(url: string): Record<string, string> {
   try {
     const query = url.includes('?') ? url.split('?')[1] : url;
-    const params = new URLSearchParams(query);
-    const result: Record<string, string> = {};
-    for (const [key, value] of params.entries()) {
-      result[key] = decodeURIComponent(value);
+    const params: Record<string, string> = {};
+    const urlParams = new URLSearchParams(query);
+    for (const [key, value] of urlParams.entries()) {
+      params[key] = decodeURIComponent(value);
     }
-    console.debug('[DEBUG] Parsed query params:', result); // Log de los parámetros parseados
-    return result;
+    console.debug('[DEBUG] Parsed params:', params); // Log de los parámetros
+    return params;
   } catch (e) {
-    console.warn('[DEBUG] Error al parsear la URL:', e);
+    console.warn('[ERROR] Error al parsear la URL:', e);
     return {};
   }
 }
 
 function formatFecha(iso: string) {
   const date = new Date(iso);
-  const formattedDate = date.toLocaleDateString('es-UY', {
+  return date.toLocaleDateString('es-UY', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
-  console.debug('[DEBUG] Formatted date:', formattedDate); // Log de la fecha formateada
-  return formattedDate;
 }
 
 function formatHora(hora: string) {
-  const formattedHora = hora.length >= 5 ? hora.slice(0, 5) : hora;
-  console.debug('[DEBUG] Formatted time:', formattedHora); // Log de la hora formateada
-  return formattedHora;
+  return hora.length >= 5 ? hora.slice(0, 5) : hora;
 }
 
 export default function PaymentSuccessScreen() {
@@ -57,7 +49,6 @@ export default function PaymentSuccessScreen() {
   const params = route.params as any;
 
   const parsed = params?.url ? parseQueryParams(params.url) : params;
-
   const {
     idCompraIda,
     idCompraVuelta,
@@ -83,68 +74,47 @@ export default function PaymentSuccessScreen() {
     const idaId = Number(idCompraIda);
     const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
 
-    console.debug('[DEBUG] ID Compra Ida:', idaId); // Log para ID de la compra de ida
-    console.debug('[DEBUG] ID Compra Vuelta:', vueltaId); // Log para ID de la compra de vuelta
-
     if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
     if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
 
     if (!session_id || session_id.includes('{CHECKOUT_SESSION_ID}')) {
-      Alert.alert('Error', 'Stripe no devolvió un ID de sesión válido.');
-      console.debug('[DEBUG] session_id no válido:', session_id); // Log si session_id no es válido
+      Alert.alert(
+        'Error',
+        'Stripe no devolvió un ID de sesión válido. Verifica que el pago se haya completado correctamente.'
+      );
+      console.debug('[DEBUG] session_id no válido:', session_id);
     } else {
       setStripeSessionId(session_id);
       if (idaId) {
-        guardarReferenciaPago(idaId, session_id).catch(console.error);
+        guardarReferenciaPago(idaId, session_id).catch((err) => {
+          console.error('[ERROR] Error guardando referencia de pago:', err);
+        });
       }
     }
   }, [idCompraIda, idCompraVuelta, session_id]);
 
-  const generarTicketHTML = async () => {
-    console.debug('[DEBUG] Generando HTML para el ticket...');
-    const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
+  const handleGeneratePDF = async () => {
+    const formattedTotal = parseFloat(totalPrice).toFixed(2);
+    const hoy = new Date();
+    const fechaHoy = hoy.toISOString().split('T')[0]; // "YYYY-MM-DD"
 
-    console.debug('[DEBUG] Descargando el asset:', asset);
-    await asset.downloadAsync();
-
-    let base64Logo = '';
-    try {
-      base64Logo = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    } catch (error) {
-      console.error('[ERROR] No se pudo generar el logo en base64:', error);
-      return '';  // Devolver vacío si no se puede leer el logo
-    }
-
-    console.debug('[DEBUG] Base64 logo generated:', base64Logo); // Log de la generación del logo
-
-    const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
-    console.debug('[DEBUG] Todos los asientos:', asientosCompletos); // Log de todos los asientos
-
-    let contenido = '';
-
-    for (const asiento of asientosCompletos) {
-      const esIda = outboundSeats.includes(asiento);
-      const fechaSalida = esIda ? departDate : returnDate;
-      const horaSalida = esIda ? outboundHoraInicio : returnHoraInicio;
-      const horaArribo = esIda ? outboundHoraFin : returnHoraFin;
-
-      contenido += `
+    const generateTicketHTML = (seats: string[], isReturn: boolean = false) => {
+      let contenido = '';
+      seats.forEach((asiento) => {
+        contenido += `
         <div style="page-break-after: always; padding: 24px; font-family: sans-serif;">
-          <img src="data:image/png;base64,${base64Logo}" style="width: 100px; display: block; margin: 0 auto 20px;" />
           <h1 style="text-align:center;">Pasaje de Ómnibus</h1>
           <h2 style="text-align:center;">Empresa: Tecnobus</h2>
           <hr/>
           <h3 style="color: #00B0F0;">Datos del Viaje</h3>
           <p>Origen: ${origin}</p>
           <p>Destino: ${destination}</p>
-          <p>Fecha: ${formatFecha(fechaSalida)}</p>
-          <p>Horario: ${formatHora(horaSalida)} a ${formatHora(horaArribo)}</p>
+          <p>Fecha: ${formatFecha(isReturn ? returnDate : departDate)}</p>
+          <p>Horario: ${formatHora(isReturn ? returnHoraInicio : outboundHoraInicio)} a ${formatHora(isReturn ? returnHoraFin : outboundHoraFin)}</p>
           <p>Asiento: ${asiento}</p>
           <hr/>
           <h3 style="color: #00B0F0;">Pago</h3>
-          <p>Importe: $ ${parseFloat(totalPrice).toFixed(2)}</p>
+          <p>Importe: $ ${formattedTotal}</p>
           <hr/>
           <h3 style="color: #00B0F0;">Observaciones</h3>
           <ul>
@@ -154,62 +124,28 @@ export default function PaymentSuccessScreen() {
           </ul>
         </div>
       `;
-    }
+      });
+      return contenido;
+    };
 
-    console.debug('[DEBUG] Generado el HTML del ticket:', contenido); // Log del HTML generado
+    const htmlIda = generateTicketHTML(outboundSeats);
+    const htmlVuelta = returnSeats && returnSeats.length > 0 ? generateTicketHTML(returnSeats, true) : '';
 
-    return `<html><body>${contenido}</body></html>`;
-  };
+    const html = htmlIda + htmlVuelta;
 
-  const handleGeneratePDF = async () => {
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      console.debug('[DEBUG] Media Library permissions:', status); // Log de permisos de Media Library
+      const { uri } = await Print.printToFileAsync({ html });
 
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'No se pudo acceder al almacenamiento.');
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Error', 'La función de compartir no está disponible.');
         return;
       }
 
-      const html = await generarTicketHTML();
-      const { uri } = await Print.printToFileAsync({ html });
-
-      console.debug('[DEBUG] PDF generado URI:', uri); // Log del URI generado del PDF
-
-      const fecha = new Date().toISOString().split('T')[0];
-      const fileName = `ticket-${idCompraIda}-${fecha}.pdf`;
-      const newPath =
-        Platform.OS === 'ios'
-          ? `${FileSystem.cacheDirectory}${fileName}`
-          : `${FileSystem.documentDirectory}${fileName}`;
-
-      console.debug('[DEBUG] Nueva ruta del archivo:', newPath); // Log de la nueva ruta
-
-      await FileSystem.copyAsync({ from: uri, to: newPath });
-
-      // Solo guardar en galería en Android
-      if (Platform.OS === 'android') {
-        const asset = await MediaLibrary.createAssetAsync(newPath);
-        await MediaLibrary.createAlbumAsync('TicketsTecnobus', asset, false);
-      }
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(newPath, {
-          mimeType: 'application/pdf',
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        Alert.alert('PDF generado', `Podés encontrar el archivo en Archivos.`);
-      }
-
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(`Guardado como ${fileName}`, ToastAndroid.LONG);
-      } else {
-        Alert.alert('PDF generado', `Ticket guardado como ${fileName}.`);
-      }
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      Alert.alert('PDF generado', 'Tu ticket se ha abierto. Puedes guardarlo o compartirlo.');
     } catch (error) {
-      console.error('[ERROR] Error generando o guardando PDF:', error);
-      Alert.alert('Error', 'No se pudo generar o guardar el PDF.');
+      console.error('[ERROR] Error generando PDF:', error);
+      Alert.alert('Error', 'No se pudo generar o abrir el PDF.');
     }
   };
 
@@ -249,7 +185,7 @@ export default function PaymentSuccessScreen() {
           </Text>
 
           <Text style={styles.label}>Asientos</Text>
-          <Text style={styles.value}>{outboundSeats?.join(', ')}</Text>
+          <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
         </View>
 
         {returnDate && (
@@ -267,7 +203,7 @@ export default function PaymentSuccessScreen() {
             </Text>
 
             <Text style={styles.label}>Asientos</Text>
-            <Text style={styles.value}>{returnSeats?.join(', ')}</Text>
+            <Text style={styles.value}>{returnSeats.join(', ')}</Text>
           </View>
         )}
 
@@ -280,6 +216,7 @@ export default function PaymentSuccessScreen() {
       <TouchableOpacity style={styles.primaryButton} onPress={handleGeneratePDF}>
         <Text style={styles.primaryButtonText}>Ver Ticket en PDF</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.secondaryButton} onPress={handleGoHome}>
         <Text style={styles.secondaryButtonText}>Volver al Inicio</Text>
       </TouchableOpacity>
@@ -288,8 +225,6 @@ export default function PaymentSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', padding: 16, backgroundColor: '#c6eefc' },
-  title: { fontSize: 24, marginBottom: 24, textAlign: 'center', color: 'green' },
   section: {
     marginBottom: 24,
     backgroundColor: '#fff',
@@ -315,12 +250,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     color: '#1f2c3a',
   },
-  block: {
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#91d5f4',
-    paddingBottom: 12,
-  },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 16, backgroundColor: '#c6eefc' },
+  title: { fontSize: 24, marginBottom: 24, textAlign: 'center', color: 'green' },
+  block: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#91d5f4', paddingBottom: 12 },
   label: { fontSize: 16, fontWeight: '500', color: '#1f2c3a', marginTop: 8 },
   value: { fontSize: 16, color: '#1f2c3a' },
   total: { fontSize: 20, fontWeight: 'bold', marginVertical: 8, color: '#1f2c3a' },
@@ -329,3 +261,4 @@ const styles = StyleSheet.create({
   secondaryButton: { backgroundColor: '#1f2c3a', paddingVertical: 14, borderRadius: 8, marginTop: 12 },
   secondaryButtonText: { color: '#ffffff', fontSize: 18, textAlign: 'center', fontWeight: 'bold' },
 });
+
