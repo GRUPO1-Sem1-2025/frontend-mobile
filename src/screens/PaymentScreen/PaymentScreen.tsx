@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRef } from 'react';
 import {
   View,
   Text,
@@ -123,11 +124,16 @@ export default function PaymentScreen() {
     }
   }, [discountPercent, outboundTrip, returnTrip, totalPrice]);
 
+const timeRef = useRef(timeLeft);
+useEffect(() => {
+  timeRef.current = timeLeft;
+}, [timeLeft]);
+
 useFocusEffect(
   React.useCallback(() => {
     let interval: NodeJS.Timeout;
 
-    if (timeLeft > 0) {
+    if (timeRef.current > 0) {
       interval = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -144,8 +150,8 @@ useFocusEffect(
       }, 1000);
     }
 
-    return () => clearInterval(interval); // se limpia cuando pierde foco
-  }, [timeLeft])
+    return () => clearInterval(interval); // se limpia al perder el foco
+  }, [])
 );
 
   const formatTime = (seconds: number): string => {
@@ -202,49 +208,72 @@ useFocusEffect(
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Resumen de Compra</Text>
-
-      <View style={styles.alertBox}>
-        <Text style={styles.alertMessage}>
-          Recuerde que tiene <Text style={styles.alertTime}>{formatTime(timeLeft)}</Text> para completar el proceso de pago.
-        </Text>
-      </View>
-
+<View style={styles.alertBox}>
+  <Text style={styles.alertMessage}>
+    Tenés <Text style={styles.alertTime}>{formatTime(timeLeft)}</Text> para completar tu compra.
+    Si no realizás el pago antes de que el tiempo expire, la reserva se cancelará automáticamente.
+  </Text>
+</View>
       {loadingLocs ? (
         <ActivityIndicator size="large" />
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.label}>Origen → Destino:</Text>
-          <Text style={styles.value}>{originName} → {destinationName}</Text>
+        <>
+          <View style={styles.sectionBox}>
+            <Text style={styles.sectionTitle}>IDA</Text>
+            <Text style={styles.label}>Origen:</Text>
+            <Text style={styles.value}>{originName}</Text>
 
-          <Text style={styles.label}>Fecha Ida:</Text>
-          <Text style={styles.value}>{formatDate(departDate)}</Text>
+            <Text style={styles.label}>Destino:</Text>
+            <Text style={styles.value}>{destinationName}</Text>
 
-          <Text style={styles.label}>Ómnibus Ida:</Text>
-          <Text style={styles.value}>{outboundTrip.viajeId} - {outboundTrip.horaInicio} a {outboundTrip.horaFin}</Text>
+            <Text style={styles.label}>Fecha:</Text>
+            <Text style={styles.value}>{formatDate(departDate)}</Text>
 
-          <Text style={styles.label}>Asientos Ida:</Text>
-          <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
+            <Text style={styles.label}>Horario:</Text>
+            <Text style={styles.value}>{outboundTrip.horaInicio} a {outboundTrip.horaFin}</Text>
 
-          <Text style={styles.label}>Precio por pasaje:</Text>
-          {formatWithDiscount(priceOutFinal, priceOutOriginal)}
+            <Text style={styles.label}>Ómnibus:</Text>
+            <Text style={styles.value}>Ómnibus {outboundTrip.busId}</Text>
 
-          <Text style={styles.label}>Subtotal Ida:</Text>
-          {formatWithDiscount(subtotalOut, subtotalOutOriginal)}
+            <Text style={styles.label}>Asientos:</Text>
+            <Text style={styles.value}>{outboundSeats.join(', ')}</Text>
+
+            <Text style={styles.label}>Precio por pasaje:</Text>
+            {formatWithDiscount(priceOutFinal, priceOutOriginal)}
+
+            <Text style={styles.label}>Subtotal:</Text>
+            {formatWithDiscount(subtotalOut, subtotalOutOriginal)}
+          </View>
 
           {tripType === 'roundtrip' && returnTrip && retCount > 0 && (
-            <>
-              <Text style={styles.label}>Asientos Vuelta:</Text>
+            <View style={styles.sectionBox}>
+              <Text style={styles.sectionTitle}>VUELTA</Text>
+              <Text style={styles.label}>Origen:</Text>
+              <Text style={styles.value}>{destinationName}</Text>
+
+              <Text style={styles.label}>Destino:</Text>
+              <Text style={styles.value}>{originName}</Text>
+
+              <Text style={styles.label}>Fecha:</Text>
+              <Text style={styles.value}>{formatDate(returnDate!)}</Text>
+
+              <Text style={styles.label}>Horario:</Text>
+              <Text style={styles.value}>{returnTrip.horaInicio} a {returnTrip.horaFin}</Text>
+
+              <Text style={styles.label}>Ómnibus:</Text>
+              <Text style={styles.value}>Ómnibus {returnTrip.busId}</Text>
+
+              <Text style={styles.label}>Asientos:</Text>
               <Text style={styles.value}>{returnSeats?.join(', ')}</Text>
 
-              <Text style={styles.label}>Precio por pasaje Vuelta:</Text>
+              <Text style={styles.label}>Precio por pasaje:</Text>
               {formatWithDiscount(priceRetFinal, priceRetOriginal)}
 
-              <Text style={styles.label}>Subtotal Vuelta:</Text>
+              <Text style={styles.label}>Subtotal:</Text>
               {formatWithDiscount(subtotalRet, subtotalRetOriginal)}
-            </>
+            </View>
           )}
-        </View>
+        </>
       )}
 
       {discountPercent > 0 && (
@@ -275,6 +304,24 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     padding: 16,
     backgroundColor: '#c6eefc',
+  },
+  sectionBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2c3a',
+    marginBottom: 12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   title: {
     fontSize: 26,
@@ -369,6 +416,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 20,
   },
+  timer: {
+  fontSize: 16,
+  textAlign: 'center',
+  color: '#1f2c3a',
+  marginBottom: 12,
+},
+timerValue: {
+  fontWeight: 'bold',
+  color: '#d84315',
+},
   primaryButtonText: {
     color: '#1f2c3a',
     fontSize: 18,
