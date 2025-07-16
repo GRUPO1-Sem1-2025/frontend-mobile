@@ -26,19 +26,31 @@ function decodeToken(token: string): { id: number } {
 export async function getReservasUsuario(email: string) {
   console.log('[DEBUG] Obteniendo reservas para el usuario:', email);
   const url = `${BASE_URL}/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
 
-  if (!response.ok) {
-    console.error('[DEBUG] Error obteniendo reservas:', response.status);
-    throw new Error('No se pudieron obtener las reservas');
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Verifica si la respuesta fue exitosa
+    if (!response.ok) {
+      const errorMessage = await response.text(); // Obtener mensaje de error si lo hay
+      console.error('[ERROR] Error obteniendo reservas:', response.status, errorMessage);
+      throw new Error(`No se pudieron obtener las reservas. Detalles: ${errorMessage}`);
+    }
+
+    // Si la respuesta es correcta, obtenemos los datos
+    const data = await response.json();
+    console.debug('[DEBUG] Reservas obtenidas:', data); // Log de las reservas obtenidas
+
+    return data; // Devuelve la respuesta completa (ajustar según la estructura esperada)
+  } catch (error) {
+    console.error('[ERROR] Error al obtener las reservas:', error);
+    throw error; // Vuelve a lanzar el error para que se pueda manejar en otro lugar
   }
-
-  return response.json();
 }
 
 export async function reservarPasaje(

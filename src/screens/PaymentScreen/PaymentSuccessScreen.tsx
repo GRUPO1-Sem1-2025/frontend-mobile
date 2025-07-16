@@ -17,8 +17,6 @@ import * as MediaLibrary from 'expo-media-library';
 import { Asset } from 'expo-asset';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { cambiarEstadoCompra, guardarReferenciaPago } from '../../services/purchases';
-import QRCode from 'qrcode-svg';
-import { encode as btoa } from 'base-64';
 
 function parseQueryParams(url: string): Record<string, string> {
   try {
@@ -28,7 +26,7 @@ function parseQueryParams(url: string): Record<string, string> {
     for (const [key, value] of params.entries()) {
       result[key] = decodeURIComponent(value);
     }
-    console.debug('[DEBUG] Parsed query params:', result); // Debugging parsed params
+    console.debug('[DEBUG] Parsed query params:', result); // Log de los parámetros parseados
     return result;
   } catch (e) {
     console.warn('[DEBUG] Error al parsear la URL:', e);
@@ -43,31 +41,14 @@ function formatFecha(iso: string) {
     month: '2-digit',
     year: 'numeric',
   });
-  console.debug('[DEBUG] Formatted date:', formattedDate); // Debugging formatted date
+  console.debug('[DEBUG] Formatted date:', formattedDate); // Log de la fecha formateada
   return formattedDate;
 }
 
 function formatHora(hora: string) {
   const formattedHora = hora.length >= 5 ? hora.slice(0, 5) : hora;
-  console.debug('[DEBUG] Formatted time:', formattedHora); // Debugging formatted time
+  console.debug('[DEBUG] Formatted time:', formattedHora); // Log de la hora formateada
   return formattedHora;
-}
-
-function generarQRBase64(contenido: string): string {
-  try {
-    const svgQR = new QRCode({
-      content: contenido,
-      padding: 0,
-      width: 100,
-      height: 100,
-    }).svg();
-    const base64 = btoa(svgQR);
-    console.debug('[DEBUG] Generated QR base64:', base64); // Debugging QR code generation
-    return `data:image/svg+xml;base64,${base64}`;
-  } catch (error) {
-    console.error('[ERROR] Error generando QR:', error);
-    return '';
-  }
 }
 
 export default function PaymentSuccessScreen() {
@@ -102,15 +83,15 @@ export default function PaymentSuccessScreen() {
     const idaId = Number(idCompraIda);
     const vueltaId = idCompraVuelta ? Number(idCompraVuelta) : null;
 
-    console.debug('[DEBUG] ID Compra Ida:', idaId); // Debugging idaId
-    console.debug('[DEBUG] ID Compra Vuelta:', vueltaId); // Debugging vueltaId
+    console.debug('[DEBUG] ID Compra Ida:', idaId); // Log para ID de la compra de ida
+    console.debug('[DEBUG] ID Compra Vuelta:', vueltaId); // Log para ID de la compra de vuelta
 
     if (idaId) cambiarEstadoCompra(idaId).catch(console.error);
     if (vueltaId) cambiarEstadoCompra(vueltaId).catch(console.error);
 
     if (!session_id || session_id.includes('{CHECKOUT_SESSION_ID}')) {
       Alert.alert('Error', 'Stripe no devolvió un ID de sesión válido.');
-      console.debug('[DEBUG] session_id no válido:', session_id);
+      console.debug('[DEBUG] session_id no válido:', session_id); // Log si session_id no es válido
     } else {
       setStripeSessionId(session_id);
       if (idaId) {
@@ -120,9 +101,11 @@ export default function PaymentSuccessScreen() {
   }, [idCompraIda, idCompraVuelta, session_id]);
 
   const generarTicketHTML = async () => {
+    console.debug('[DEBUG] Generando HTML para el ticket...');
     const asset = Asset.fromModule(require('../../../assets/icon-ticket.png'));
+
+    console.debug('[DEBUG] Descargando el asset:', asset);
     await asset.downloadAsync();
-    console.debug('[DEBUG] Ticket asset downloaded:', asset.uri); // Debugging asset download
 
     let base64Logo = '';
     try {
@@ -131,13 +114,13 @@ export default function PaymentSuccessScreen() {
       });
     } catch (error) {
       console.error('[ERROR] No se pudo generar el logo en base64:', error);
-      return '';
+      return '';  // Devolver vacío si no se puede leer el logo
     }
 
-    console.debug('[DEBUG] Base64 logo generated:', base64Logo); // Debugging base64 logo
+    console.debug('[DEBUG] Base64 logo generated:', base64Logo); // Log de la generación del logo
 
     const asientosCompletos = [...outboundSeats, ...(returnSeats || [])];
-    console.debug('[DEBUG] All seats:', asientosCompletos); // Debugging seats array
+    console.debug('[DEBUG] Todos los asientos:', asientosCompletos); // Log de todos los asientos
 
     let contenido = '';
 
@@ -146,20 +129,6 @@ export default function PaymentSuccessScreen() {
       const fechaSalida = esIda ? departDate : returnDate;
       const horaSalida = esIda ? outboundHoraInicio : returnHoraInicio;
       const horaArribo = esIda ? outboundHoraFin : returnHoraFin;
-
-      const qrControl = generarQRBase64(
-        `${origin} - ${destination} - ${fechaSalida} - ${horaSalida} - ${asiento}`
-      );
-
-      const qrAnden =
-        origin === 'Montevideo' && esIda
-          ? generarQRBase64(
-              `TECNOBUS,${formatFecha(fechaSalida)},${formatHora(horaSalida)},Si`
-            )
-          : '';
-
-      console.debug('[DEBUG] QR Control:', qrControl); // Debugging QR control
-      console.debug('[DEBUG] QR Anden:', qrAnden); // Debugging QR Anden
 
       contenido += `
         <div style="page-break-after: always; padding: 24px; font-family: sans-serif;">
@@ -183,22 +152,11 @@ export default function PaymentSuccessScreen() {
             <li>Documento de identidad obligatorio.</li>
             <li>No se permiten cambios dentro de las 24 horas previas.</li>
           </ul>
-          <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-            <div style="text-align: center;">
-              <p style="font-weight: bold;">Control</p>
-              <img src="${qrControl}" style="width: 100px;" />
-            </div>
-            ${qrAnden ? `
-              <div style="text-align: center;">
-                <p style="font-weight: bold;">Acceso a andenes</p>
-                <img src="${qrAnden}" style="width: 100px;" />
-              </div>` : ''}
-          </div>
         </div>
       `;
     }
 
-    console.debug('[DEBUG] Generated ticket HTML:', contenido); // Debugging generated HTML
+    console.debug('[DEBUG] Generado el HTML del ticket:', contenido); // Log del HTML generado
 
     return `<html><body>${contenido}</body></html>`;
   };
@@ -206,7 +164,7 @@ export default function PaymentSuccessScreen() {
   const handleGeneratePDF = async () => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      console.debug('[DEBUG] Media Library permissions:', status); // Debugging permission status
+      console.debug('[DEBUG] Media Library permissions:', status); // Log de permisos de Media Library
 
       if (status !== 'granted') {
         Alert.alert('Permiso denegado', 'No se pudo acceder al almacenamiento.');
@@ -216,7 +174,7 @@ export default function PaymentSuccessScreen() {
       const html = await generarTicketHTML();
       const { uri } = await Print.printToFileAsync({ html });
 
-      console.debug('[DEBUG] Generated PDF URI:', uri); // Debugging PDF URI
+      console.debug('[DEBUG] PDF generado URI:', uri); // Log del URI generado del PDF
 
       const fecha = new Date().toISOString().split('T')[0];
       const fileName = `ticket-${idCompraIda}-${fecha}.pdf`;
@@ -225,7 +183,7 @@ export default function PaymentSuccessScreen() {
           ? `${FileSystem.cacheDirectory}${fileName}`
           : `${FileSystem.documentDirectory}${fileName}`;
 
-      console.debug('[DEBUG] New file path:', newPath); // Debugging new file path
+      console.debug('[DEBUG] Nueva ruta del archivo:', newPath); // Log de la nueva ruta
 
       await FileSystem.copyAsync({ from: uri, to: newPath });
 
