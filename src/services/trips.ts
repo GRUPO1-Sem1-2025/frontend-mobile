@@ -26,7 +26,7 @@ export async function getAvailableTrips(
   const fechaFin =
     tripType === 'roundtrip' && returnDate
       ? formatDateLocal(returnDate)
-      : fechaInicio;
+      : formatDateLocal(new Date(departDate.getTime() + 24 * 60 * 60 * 1000));
 
   const params = new URLSearchParams({
     fechaInicio,
@@ -34,6 +34,7 @@ export async function getAvailableTrips(
     locOrigen: origin.toString(),
     locDestino: destination.toString(),
   });
+  console.log('[DEBUG] getAvailableTrips - Parámetros:', params.toString());
 
   const url = `${BASE_URL}/viajes/obtenerViajesPorFechaYDestino?${params.toString()}`;
 
