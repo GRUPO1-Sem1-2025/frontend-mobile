@@ -97,10 +97,19 @@ export default function PaymentSuccessScreen() {
   }, [idCompraIda, idCompraVuelta, session_id]);
 
 const generarHTML = () => {
-  const formatAsiento = (fecha: string, horaInicio: string, horaFin: string, asiento: number) => `
+  const formatAsiento = (
+    fecha: string,
+    horaInicio: string,
+    horaFin: string,
+    asiento: number
+  ) => `
     <div class="page">
+      <div class="logo-container">
+        <img src="https://i.imgur.com/iO0pmub.png" width="100" />
+      </div>
       <h1>Pasaje de Ómnibus</h1>
       <h2>Empresa: Tecnobus</h2>
+      <hr />
 
       <h3>Datos del Viaje</h3>
       <p><strong>Origen:</strong> ${origin}</p>
@@ -109,15 +118,17 @@ const generarHTML = () => {
       <p><strong>Horario:</strong> ${formatHora(horaInicio)} a ${formatHora(horaFin)}</p>
       <p><strong>Asiento:</strong> ${asiento}</p>
 
+      <hr />
       <h3>Pago</h3>
-      <p><strong>Importe:</strong> $ ${parseFloat(totalPrice).toFixed(2)}</p>
+      <p><strong>Importe:</strong> <span class="importe">$ ${parseFloat(totalPrice).toFixed(2)}</span></p>
 
+      <hr />
       <h3>Observaciones</h3>
-      <p>Presentarse 30 minutos antes de la salida.</p>
-      <p>Documento de identidad obligatorio.</p>
-      <p>No se permiten cambios dentro de las 24 horas previas.</p>
-
-      <p style="margin-top: 40px;">Control Acceso a andenes</p>
+      <ul>
+        <li>Presentarse 30 minutos antes de la salida.</li>
+        <li>Documento de identidad obligatorio.</li>
+        <li>No se permiten cambios dentro de las 24 horas previas.</li>
+      </ul>
     </div>
   `;
 
@@ -149,26 +160,53 @@ const generarHTML = () => {
         <style>
           body {
             font-family: sans-serif;
-            color: #1f2c3a;
+            color: #000;
             margin: 0;
             padding: 0;
           }
           .page {
-            padding: 32px;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
             page-break-after: always;
+          }
+          .logo-container {
+            text-align: center;
+            margin-bottom: 24px;
           }
           h1 {
             text-align: center;
             font-size: 24px;
-            color: #333;
+            margin: 0 0 8px 0;
           }
-          h2, h3 {
-            color: #444;
+          h2 {
+            text-align: center;
+            font-size: 18px;
+            margin: 0 0 16px 0;
+          }
+          h3 {
+            color: #1890ff;
             margin-top: 24px;
+            margin-bottom: 8px;
+          }
+          hr {
+            border: none;
+            border-top: 1px solid #999;
+            margin: 24px 0;
           }
           p {
-            font-size: 16px;
             margin: 4px 0;
+            font-size: 16px;
+          }
+          .importe {
+            font-weight: bold;
+            font-size: 18px;
+          }
+          ul {
+            padding-left: 20px;
+          }
+          ul li {
+            margin-bottom: 4px;
           }
         </style>
       </head>
