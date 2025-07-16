@@ -2,47 +2,58 @@ import { BASE_URL } from '../context/AuthContext';
 
 // 🔧 Helper para manejar respuestas de la API de manera uniforme
 async function handleResponse(response: Response, errorMessage: string) {
+  const url = response.url;
+  const status = response.status;
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error(`[ERROR] ${errorMessage}. Status: ${status}. URL: ${url}. Body:`, errorData);
     const message = errorData?.message || errorMessage;
     throw new Error(message);
   }
-  return await response.json();
+
+  const data = await response.json();
+  console.log(`[DEBUG] Respuesta exitosa (${status}) desde ${url}:`, data);
+  return data;
 }
 
 // 📌 Obtener reservas del usuario
 export async function getReservas(email: string, token: string) {
+  const url = `${BASE_URL}/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`;
+  console.log('[DEBUG] getReservas - Email:', email);
+  console.log('[DEBUG] getReservas - URL:', url);
+
   try {
-    const response = await fetch(
-      `${BASE_URL}/usuarios/ObtenerMisReservas?email=${encodeURIComponent(email)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return await handleResponse(response, 'No se pudieron obtener las reservas');
   } catch (error) {
+    console.error('[ERROR] getReservas - Excepción:', error);
     throw new Error(`Error al obtener las reservas: ${(error as Error).message}`);
   }
 }
 
 // 📌 Obtener compras del usuario
 export async function getCompras(email: string, token: string) {
+  const url = `${BASE_URL}/usuarios/ObtenerMisCompras?email=${encodeURIComponent(email)}`;
+  console.log('[DEBUG] getCompras - Email:', email);
+  console.log('[DEBUG] getCompras - URL:', url);
+
   try {
-    const response = await fetch(
-      `${BASE_URL}/usuarios/ObtenerMisCompras?email=${encodeURIComponent(email)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return await handleResponse(response, 'No se pudieron obtener las compras');
   } catch (error) {
+    console.error('[ERROR] getCompras - Excepción:', error);
     throw new Error(`Error al obtener las compras: ${(error as Error).message}`);
   }
 }
@@ -54,16 +65,18 @@ export async function calificarViaje(
   comentario: string,
   idUsuario: number,
 ) {
-  try {
-    const body = {
-      idViaje,
-      calificacion,
-      comentario: {
-        idUsuario,
-        comentario,
-      },
-    };
+  const body = {
+    idViaje,
+    calificacion,
+    comentario: {
+      idUsuario,
+      comentario,
+    },
+  };
 
+  console.log('[DEBUG] calificarViaje - Payload enviado:', body);
+
+  try {
     const response = await fetch(`${BASE_URL}/viajes/calificarViaje`, {
       method: 'POST',
       headers: {
@@ -74,7 +87,7 @@ export async function calificarViaje(
 
     return await handleResponse(response, 'No se pudo calificar el viaje');
   } catch (error) {
-    console.error('[DEBUG] Error al calificar viaje:', error);
+    console.error('[ERROR] calificarViaje - Excepción:', error);
     throw new Error(`Error al calificar el viaje: ${(error as Error).message}`);
   }
 }
@@ -85,32 +98,36 @@ export async function getCompraViaje(
   compraId: number,
   userId: number
 ) {
+  const url = `${BASE_URL}/viajes/obtenerCompraViaje?idViaje=${viajeId}&idCompra=${compraId}&idUsuario=${userId}`;
+  console.log('[DEBUG] getCompraViaje - URL:', url);
+
   try {
-    const response = await fetch(
-      `${BASE_URL}/viajes/obtenerCompraViaje?idViaje=${viajeId}&idCompra=${compraId}&idUsuario=${userId}`
-    );
+    const response = await fetch(url);
     return await handleResponse(response, 'No se pudo obtener el detalle del viaje');
   } catch (error) {
-    console.error('[DEBUG] Error al obtener detalle de compra:', error);
+    console.error('[ERROR] getCompraViaje - Excepción:', error);
     throw new Error(`Error al obtener el detalle del viaje: ${(error as Error).message}`);
   }
 }
 
 // 📌 Obtener calificación de un viaje
 export async function getCalificacionViaje(idViaje: number, idUsuario: number) {
-  try {
-    const response = await fetch(
-      `${BASE_URL}/viajes/verCalificacionUsuario?idViaje=${idViaje}&idUsuario=${idUsuario}`
-    );
+  const url = `${BASE_URL}/viajes/verCalificacionUsuario?idViaje=${idViaje}&idUsuario=${idUsuario}`;
+  console.log('[DEBUG] getCalificacionViaje - URL:', url);
 
+  try {
+    const response = await fetch(url);
     const data = await handleResponse(response, 'No se pudo obtener la calificación');
 
-    return {
+    const resultado = {
       calificacion: data.calificacion ?? 0,
       comentarios: data.comentario ? [data.comentario] : [],
     };
+
+    console.log('[DEBUG] Calificación obtenida:', resultado);
+    return resultado;
   } catch (error) {
-    console.error('[DEBUG] Error al obtener calificación:', error);
+    console.error('[ERROR] getCalificacionViaje - Excepción:', error);
     throw new Error(`Error al obtener la calificación: ${(error as Error).message}`);
   }
 }

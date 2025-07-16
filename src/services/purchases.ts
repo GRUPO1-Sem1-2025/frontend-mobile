@@ -17,8 +17,10 @@ function decodeToken(token: string): { id: number } {
     const payloadBase64 = token.split('.')[1];
     const decoded = atob(payloadBase64);
     const payload = JSON.parse(decoded);
+    console.log('[DEBUG] Token decodificado:', payload);
     return { id: payload.id };
   } catch (e) {
+    console.error('[ERROR] Token inválido:', e);
     throw new Error('Token inválido');
   }
 }
@@ -30,26 +32,21 @@ export async function getReservasUsuario(email: string) {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Verifica si la respuesta fue exitosa
     if (!response.ok) {
-      const errorMessage = await response.text(); // Obtener mensaje de error si lo hay
+      const errorMessage = await response.text();
       console.error('[ERROR] Error obteniendo reservas:', response.status, errorMessage);
       throw new Error(`No se pudieron obtener las reservas. Detalles: ${errorMessage}`);
     }
 
-    // Si la respuesta es correcta, obtenemos los datos
     const data = await response.json();
-    console.debug('[DEBUG] Reservas obtenidas:', data); // Log de las reservas obtenidas
-
-    return data; // Devuelve la respuesta completa (ajustar según la estructura esperada)
+    console.log('[DEBUG] Reservas obtenidas:', data);
+    return data;
   } catch (error) {
-    console.error('[ERROR] Error al obtener las reservas:', error);
-    throw error; // Vuelve a lanzar el error para que se pueda manejar en otro lugar
+    console.error('[ERROR] Excepción al obtener reservas:', error);
+    throw error;
   }
 }
 
@@ -67,24 +64,38 @@ export async function reservarPasaje(
     estadoCompra: 'RESERVADA',
   };
 
-  console.log('[DEBUG] Reservando pasaje:', body);
+  // Verificación de valores nulos o incorrectos
+  if (usuarioId == null) {
+    console.error('[ERROR] usuarioId es null o undefined');
+  }
+
+  if (viajeId == null) {
+    console.error('[ERROR] viajeId es null o undefined');
+  }
+
+  if (!Array.isArray(numerosDeAsiento) || numerosDeAsiento.length === 0) {
+    console.error('[ERROR] numerosDeAsiento está vacío o mal definido:', numerosDeAsiento);
+  }
+
+  console.log('[DEBUG] Payload final enviado a /comprarPasaje:', JSON.stringify(body, null, 2));
+
   const response = await fetch(`${BASE_URL}/usuarios/comprarPasaje`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 
   const json = await response.json();
-  console.log('[DEBUG] Reservar pasaje response:', json);
+  console.log('[DEBUG] Respuesta de reservarPasaje:', json);
 
   if (!response.ok) {
     const message = json?.message || 'No se pudo reservar el pasaje';
+    console.error('[ERROR] Error en reservarPasaje:', message);
     throw new Error(message);
   }
 
   if (!json?.idCompra) {
+    console.error('[ERROR] No se recibió idCompra en la respuesta');
     throw new Error('No se recibió idCompra');
   }
 
@@ -97,6 +108,7 @@ export async function crearSesionStripe(
   idCompraVuelta?: number | null,
   extraData?: Record<string, string>
 ): Promise<string> {
+  console.log('[DEBUG] Creando sesión de Stripe...');
   const params = new URLSearchParams();
 
   const rawSuccessUrl =
@@ -123,6 +135,8 @@ export async function crearSesionStripe(
   params.append('line_items[0][price_data][unit_amount]', String(totalUYU * 100));
   params.append('line_items[0][quantity]', '1');
 
+  console.log('[DEBUG] Enviando request a Stripe:', STRIPE_API_URL, params.toString());
+
   const response = await fetch(`${STRIPE_API_URL}/v1/checkout/sessions`, {
     method: 'POST',
     headers: {
@@ -133,10 +147,11 @@ export async function crearSesionStripe(
   });
 
   const data = await response.json();
-  console.log('[DEBUG] Respuesta crearSesionStripe:', data);
+  console.log('[DEBUG] Respuesta Stripe:', data);
 
   if (!response.ok || !data.url) {
     const message = data?.error?.message || 'No se pudo iniciar el pago';
+    console.error('[ERROR] crearSesionStripe:', message);
     throw new Error(message);
   }
 
@@ -144,11 +159,11 @@ export async function crearSesionStripe(
 }
 
 export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
+  console.log('[DEBUG] Cambiando estado de compra. ID:', idCompra);
+
   const response = await fetch(`${BASE_URL}/usuarios/cambiarEstadoCompra`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(idCompra),
   });
 
@@ -163,12 +178,13 @@ export async function cambiarEstadoCompra(idCompra: number): Promise<void> {
       json = {};
     }
     const message = json?.mensaje || 'No se pudo actualizar el estado de compra';
+    console.error('[ERROR] cambiarEstadoCompra:', message);
     throw new Error(message);
   }
 }
+
 export async function guardarReferenciaPago(idCompra: number, stripeSessionId: string): Promise<void> {
   const url = `${BASE_URL}/usuarios/guardarReferenciaPago?idCompra=${idCompra}&referencia=${stripeSessionId}`;
-
   console.log('[DEBUG] Llamando a guardarReferenciaPago:', url);
 
   const response = await fetch(url, {
@@ -186,6 +202,7 @@ export async function guardarReferenciaPago(idCompra: number, stripeSessionId: s
       json = {};
     }
     const message = json?.mensaje || 'No se pudo guardar la referencia de pago';
+    console.error('[ERROR] guardarReferenciaPago:', message);
     throw new Error(message);
   }
 }
