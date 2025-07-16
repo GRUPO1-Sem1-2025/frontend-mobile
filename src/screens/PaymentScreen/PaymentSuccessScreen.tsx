@@ -96,38 +96,77 @@ export default function PaymentSuccessScreen() {
     }
   }, [idCompraIda, idCompraVuelta, session_id]);
 
-  const generarHTML = () => {
-    const formattedTotal = parseFloat(totalPrice).toFixed(2);
-    return `
-      <html>
-        <head>
-          <style>
-            body { font-family: sans-serif; padding: 24px; color: #1f2c3a; }
-            h1 { text-align: center; color: green; }
-            .section { border: 1px solid #91d5f4; padding: 16px; border-radius: 8px; margin-top: 20px; }
-            .label { font-weight: bold; }
-            .value { margin-left: 8px; }
-          </style>
-        </head>
-        <body>
-          <h1>Resumen de Compra</h1>
-          <div class="section">
-            <p><span class="label">Origen:</span><span class="value">${origin}</span></p>
-            <p><span class="label">Destino:</span><span class="value">${destination}</span></p>
-            <p><span class="label">Fecha Ida:</span><span class="value">${formatFecha(departDate)}</span></p>
-            <p><span class="label">Horario Ida:</span><span class="value">${formatHora(outboundHoraInicio)} a ${formatHora(outboundHoraFin)}</span></p>
-            <p><span class="label">Asientos Ida:</span><span class="value">${outboundSeats}</span></p>
-            ${returnDate ? `
-              <p><span class="label">Fecha Vuelta:</span><span class="value">${formatFecha(returnDate)}</span></p>
-              <p><span class="label">Horario Vuelta:</span><span class="value">${formatHora(returnHoraInicio)} a ${formatHora(returnHoraFin)}</span></p>
-              <p><span class="label">Asientos Vuelta:</span><span class="value">${returnSeats}</span></p>
-            ` : ''}
-            <p><span class="label">Total pagado:</span><span class="value">$${formattedTotal}</span></p>
-          </div>
-        </body>
-      </html>
-    `;
-  };
+const generarHTML = () => {
+  const formatAsiento = (fecha: string, horaInicio: string, horaFin: string, asiento: number) => `
+    <div class="page">
+      <h1>Pasaje de Ómnibus</h1>
+      <h2>Empresa: Tecnobus</h2>
+
+      <h3>Datos del Viaje</h3>
+      <p><strong>Origen:</strong> ${origin}</p>
+      <p><strong>Destino:</strong> ${destination}</p>
+      <p><strong>Fecha:</strong> ${formatFecha(fecha)}</p>
+      <p><strong>Horario:</strong> ${formatHora(horaInicio)} a ${formatHora(horaFin)}</p>
+      <p><strong>Asiento:</strong> ${asiento}</p>
+
+      <h3>Pago</h3>
+      <p><strong>Importe:</strong> $ ${parseFloat(totalPrice).toFixed(2)}</p>
+
+      <h3>Observaciones</h3>
+      <p>Presentarse 30 minutos antes de la salida.</p>
+      <p>Documento de identidad obligatorio.</p>
+      <p>No se permiten cambios dentro de las 24 horas previas.</p>
+
+      <p style="margin-top: 40px;">Control Acceso a andenes</p>
+    </div>
+  `;
+
+  const idaPages = outboundSeats.map((seat: number) =>
+    formatAsiento(departDate, outboundHoraInicio, outboundHoraFin, seat)
+  ).join('');
+
+  const vueltaPages = returnSeats
+    ? returnSeats.map((seat: number) =>
+        formatAsiento(returnDate, returnHoraInicio, returnHoraFin, seat)
+      ).join('')
+    : '';
+
+  return `
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: sans-serif;
+            color: #1f2c3a;
+            margin: 0;
+            padding: 0;
+          }
+          .page {
+            padding: 32px;
+            page-break-after: always;
+          }
+          h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #333;
+          }
+          h2, h3 {
+            color: #444;
+            margin-top: 24px;
+          }
+          p {
+            font-size: 16px;
+            margin: 4px 0;
+          }
+        </style>
+      </head>
+      <body>
+        ${idaPages}
+        ${vueltaPages}
+      </body>
+    </html>
+  `;
+};
 
   const handleGeneratePDF = async () => {
     try {
