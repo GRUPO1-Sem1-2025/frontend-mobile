@@ -156,24 +156,31 @@ export default function RegisterScreen() {
 
   const handleBlur = (campo: string) => {
     setTocado(prev => ({ ...prev, [campo]: true }));
+    validarCampos(); // <-- validar al salir del campo
+  };
+  const handleCiChange = (text: string) => {
+    const digitsOnly = text.replace(/\D/g, '').slice(0, 8); // solo hasta 8 dígitos
+    setCiRaw(digitsOnly);
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#c6eefc' }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View style={styles.container}>
             <Text style={styles.title}>Registro</Text>
 
             <TextInput
               placeholder="Nombre"
+              placeholderTextColor="#1f2c3a"
               style={[styles.input, tocado.nombre && erroresCampos.nombre && styles.inputError]}
               value={nombre}
               onChangeText={setNombre}
@@ -183,6 +190,7 @@ export default function RegisterScreen() {
 
             <TextInput
               placeholder="Apellido"
+              placeholderTextColor="#1f2c3a"
               style={[styles.input, tocado.apellido && erroresCampos.apellido && styles.inputError]}
               value={apellido}
               onChangeText={setApellido}
@@ -192,9 +200,10 @@ export default function RegisterScreen() {
 
             <TextInput
               placeholder="Cédula de Identidad"
+              placeholderTextColor="#1f2c3a"
               style={[styles.input, tocado.ci && erroresCampos.ci && styles.inputError]}
               value={formatearCI(ciRaw)}
-              onChangeText={setCiRaw}
+              onChangeText={handleCiChange}
               onBlur={() => handleBlur('ci')}
               keyboardType="numeric"
             />
@@ -202,6 +211,7 @@ export default function RegisterScreen() {
 
             <TextInput
               placeholder="Correo electrónico"
+              placeholderTextColor="#1f2c3a"
               style={[styles.input, tocado.email && erroresCampos.email && styles.inputError]}
               value={email}
               onChangeText={setEmail}
@@ -218,7 +228,7 @@ export default function RegisterScreen() {
               <View style={styles.dateRow}>
                 <Ionicons name="calendar-outline" size={20} color="#1f2c3a" style={{ marginRight: 8 }} />
                 <Text style={{ color: '#1f2c3a' }}>
-                  {fecNac ? fecNac.toLocaleDateString() : 'Seleccioná tu fecha de nacimiento (ej: 20/06/1995)'}
+                  {fecNac ? fecNac.toLocaleDateString() : 'Seleccioná tu fecha de nacimiento'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -264,6 +274,7 @@ export default function RegisterScreen() {
             <View style={styles.inputContainer}>
               <TextInput
                 placeholder="Contraseña"
+                placeholderTextColor="#1f2c3a"
                 style={[styles.inputField, tocado.password && erroresCampos.password && styles.inputError]}
                 secureTextEntry={!showPassword}
                 value={password}
@@ -279,6 +290,7 @@ export default function RegisterScreen() {
             <View style={styles.inputContainer}>
               <TextInput
                 placeholder="Confirmar contraseña"
+                placeholderTextColor="#1f2c3a"
                 style={[styles.inputField, tocado.confirm && erroresCampos.confirm && styles.inputError]}
                 secureTextEntry={!showConfirm}
                 value={confirm}
